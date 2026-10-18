@@ -1,9 +1,9 @@
 local function CreateLibrary(Drawing, Services)
-    local Library = {UiVersion = 5}
+    local Library = {UiVersion = 6}
     local HoveredItem
     local HoverChain = {}
     local Items, Connections = {}, {}
-    local Focus, Pressed, Secondary, Drag, Context, Input, Running
+    local Focus, Pressed, Secondary, Drag, ScrollDrag, Context, Input, Running
     local Pointer = Vector2.new(0, 0)
     local Keys = {}
     local NextId = 0
@@ -179,7 +179,7 @@ local function CreateLibrary(Drawing, Services)
         if Pressed == self then Pressed = nil end
         if Drag and Drag.Item == self then Drag = nil end
         for _, Entry in self.Shapes do pcall(function() Entry.Object:Remove() end) end
-        for _, Name in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do
+        for _, Name in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseEnter", "MouseLeave", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do
             for Connection in self[Name].Listeners do Connection:Disconnect() end
         end
         for _, Event in self.ChangedEvents do for Connection in Event.Listeners do Connection:Disconnect() end end
@@ -255,7 +255,13 @@ local function CreateLibrary(Drawing, Services)
         Pressed = Hit
         if not Hit then return end
         Hit.MouseButton1Down:Fire()
-        if Hit.Kind == "TextBox" then
+        if Hit.Kind == "ScrollingFrame" and Hit.CanvasSize > Hit.Size.Y and Pointer.X >= Bounds(Hit).X + Hit.Size.X - 10 then
+            ScrollDrag = Hit
+        elseif Hit.Kind == "Slider" then
+            local Box = Bounds(Hit)
+            local Inset = Hit.SliderStyle == "Fluent" and 7 or 0
+            Hit.Value = Hit.Min + math.clamp((Pointer.X - Box.X - Inset) / math.max(Box.Width - 2 * Inset, 1), 0, 1) * (Hit.Max - Hit.Min)
+        elseif Hit.Kind == "TextBox" then
             Hit:CaptureFocus()
             Hit.Cursor = Caret(Hit)
             if not Keys.LeftShift and not Keys.RightShift then Hit.Anchor = Hit.Cursor end
@@ -274,7 +280,7 @@ local function CreateLibrary(Drawing, Services)
             return
         end
         local Item = Pressed
-        Pressed, Drag = nil, nil
+        Pressed, Drag, ScrollDrag = nil, nil, nil
         if Item and not Item.Destroyed then
             Item.MouseButton1Up:Fire()
             if Inside(Pointer, Bounds(Item)) and CanHit(Item) then
@@ -296,7 +302,37 @@ local function CreateLibrary(Drawing, Services)
             Base.Color = Item.HoverColor3 or Base.Color
             if Item.HoverTransparency ~= nil then Base.Transparency = 1 - Item.HoverTransparency end
         end
-        if Item.Kind ~= "TextLabel" and Item.Kind ~= "ImageLabel" then Shape(Item, "Background", "Square", Base) end
+        local Switch = Item.Kind == "Checkbox" and Item.ToggleStyle == "Switch"
+        local Slider = Item.Kind == "Slider" and Item.SliderStyle == "Fluent"
+        if Item.Kind ~= "TextLabel" and Item.Kind ~= "ImageLabel" and not Switch and not Slider then Shape(Item, "Background", "Square", Base) end
+        if Item.BorderSizePixel > 0 then
+            Shape(Item, "Border", "Square", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = false,
+                Color = Item.BorderColor3, Transparency = 1 - Item.BorderTransparency, Thickness = Item.BorderSizePixel, Rounding = Item.CornerRadius, ZIndex = Layer + 1})
+        end
+        if Switch then
+            local Width, Height = math.min(36, Box.Width), math.min(18, Box.Height)
+            local X, Y = Box.X + (Box.Width - Width) / 2, Box.Y + (Box.Height - Height) / 2
+            Shape(Item, "SwitchTrack", "Square", {Visible = true, Position = Vector2.new(X, Y), Size = Vector2.new(Width, Height), Filled = Item.Value,
+                Color = Item.Value and Item.AccentColor3 or Item.TextColor3, Transparency = Item.Value and 1 or 0.5, Thickness = 1, Rounding = Height / 2, ZIndex = Layer})
+            Shape(Item, "SwitchKnob", "Circle", {Visible = true, Position = Vector2.new(X + (Item.Value and Width - 9 or 9), Y + Height / 2),
+                Radius = 5.5, NumSides = 24, Filled = true, Color = Item.Value and Item.KnobColor3 or Item.TextColor3, Transparency = Item.Value and 1 or 0.6, ZIndex = Layer + 1})
+        elseif Slider then
+            local Fraction = math.clamp((Item.Value - Item.Min) / math.max(0.00001, Item.Max - Item.Min), 0, 1)
+            local Width = math.max(1, Box.Width - 14)
+            local X, Y = Box.X + 7, Box.Y + Box.Height / 2
+            Shape(Item, "SliderTrack", "Square", {Visible = true, Position = Vector2.new(X, Y - 2), Size = Vector2.new(Width, 4), Filled = true,
+                Color = Item.TextColor3, Transparency = 0.35, Rounding = 2, ZIndex = Layer})
+            Shape(Item, "SliderFill", "Square", {Visible = true, Position = Vector2.new(X, Y - 2), Size = Vector2.new(Width * Fraction, 4), Filled = true,
+                Color = Item.AccentColor3, Transparency = 1, Rounding = 2, ZIndex = Layer + 1})
+            Shape(Item, "SliderKnob", "Circle", {Visible = true, Position = Vector2.new(X + Width * Fraction, Y), Radius = 6, NumSides = 24,
+                Filled = true, Color = Item.AccentColor3, Transparency = 1, ZIndex = Layer + 2})
+        elseif Item.Kind == "ScrollingFrame" then
+            local Visible = Item.CanvasSize > Box.Height and Item.ScrollBarThickness > 0
+            local Height = math.max(18, Box.Height * Box.Height / math.max(Item.CanvasSize, 1))
+            local Offset = Item.ScrollOffset / math.max(1, Item.CanvasSize - Box.Height) * (Box.Height - Height)
+            Shape(Item, "ScrollBar", "Square", {Visible = Visible, Position = Vector2.new(Box.X + Box.Width - Item.ScrollBarThickness, Box.Y + Offset),
+                Size = Vector2.new(Item.ScrollBarThickness, Height), Filled = true, Color = Item.TextColor3, Transparency = 0.35, Rounding = 2, ZIndex = Layer + 10})
+        end
         if Item.Kind == "ImageLabel" then
             Shape(Item, "Image", "Image", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Data = Item.Image, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer})
         elseif Item.Kind ~= "Frame" and Item.Kind ~= "ScrollingFrame" then
@@ -309,12 +345,17 @@ local function CreateLibrary(Drawing, Services)
                 elseif Measure.TextBounds.X < Offset then Offset = Measure.TextBounds.X end
                 Item.TextOffset = Offset
             end
-            if Item.Kind == "Checkbox" then Text = (Item.Value and "[x] " or "[ ] ") .. Text end
-            if Item.Kind == "Slider" then Text ..= " " .. string.format("%.2f", Item.Value) end
+            if Item.Kind == "Checkbox" and not Switch then Text = (Item.Value and "[x] " or "[ ] ") .. Text end
+            if Item.Kind == "Slider" and not Slider then Text ..= " " .. string.format("%.2f", Item.Value) end
             local Empty = Text == "" and Focus ~= Item
             if Empty then Text = Item.PlaceholderText end
-            local Label = Shape(Item, "Text", "Text", {Visible = true, Text = Text, Position = Vector2.new(Box.X + Item.Padding - Offset, Box.Y + (Item.Multiline and 3 or math.max(0, (Box.Height - Item.TextSize) / 2))), Size = Item.TextSize,
-                Color = Empty and Item.PlaceholderColor3 or Item.TextColor3, Font = Item.Font, ZIndex = Layer + 1, Outline = false})
+            local TextX = Box.X + Item.Padding - Offset
+            if Item.TextXAlignment ~= "Left" then
+                local Width = Shape(Item, "AlignMeasure", "Text", {Visible = false, Text = Text, Font = Item.Font, Size = Item.TextSize}).TextBounds.X
+                TextX = Item.TextXAlignment == "Center" and Box.X + (Box.Width - Width) / 2 or Box.X + Box.Width - Width - Item.Padding
+            end
+            local Label = Shape(Item, "Text", "Text", {Visible = true, Text = Text, Position = Vector2.new(TextX, Box.Y + (Item.Multiline and 3 or math.max(0, (Box.Height - Item.TextSize) / 2))), Size = Item.TextSize,
+                Color = Empty and Item.PlaceholderColor3 or Item.TextColor3, Transparency = 1 - Item.TextTransparency, Font = Item.Font, ZIndex = Layer + 2, Outline = false})
             for Key, Entry in Item.Shapes do
                 if Key == "Caret" or Key:sub(1, 9) == "Selection" then Entry.Object.Visible = false Entry.Values.Visible = false end
             end
@@ -365,7 +406,7 @@ local function CreateLibrary(Drawing, Services)
         if type(input) == "table" and type(input.isinterfaceactive) == "function" and input.isinterfaceactive() then Active = false end
         if not Active and Focus then Focus:ReleaseFocus(false) end
         if Focus and not Bounds(Focus) then Focus:ReleaseFocus(false) end
-        if not Active then table.clear(Keys) Pressed, Drag = nil, nil end
+        if not Active then table.clear(Keys) Pressed, Drag, ScrollDrag = nil, nil, nil end
         if Context then
             local Position = Context:getpointer()
             if Position then Pointer = Vector2.new(Position.X, Position.Y) end
@@ -386,10 +427,20 @@ local function CreateLibrary(Drawing, Services)
             if Ok then Pointer = Position end
         end
         if Drag then Drag.Item.Position = Pointer - Drag.Offset end
+        if ScrollDrag then
+            local Box = Bounds(ScrollDrag)
+            if Box then
+                local Height = math.max(18, Box.Height * Box.Height / ScrollDrag.CanvasSize)
+                ScrollDrag.ScrollOffset = math.clamp((Pointer.Y - Box.Y - Height / 2) / math.max(1, Box.Height - Height), 0, 1) * math.max(0, ScrollDrag.CanvasSize - Box.Height)
+            end
+        end
         if Pressed and Pressed.Kind == "TextBox" and (Pressed.LastPointerX ~= Pointer.X or Pressed.LastPointerY ~= Pointer.Y) then Pressed.Cursor = Caret(Pressed) Pressed.LastPointerX, Pressed.LastPointerY = Pointer.X, Pointer.Y end
         if Pressed and Pressed.Kind == "Slider" then
             local Box = Bounds(Pressed)
-            if Box then Pressed.Value = Pressed.Min + math.clamp((Pointer.X - Box.X) / math.max(Box.Width, 1), 0, 1) * (Pressed.Max - Pressed.Min) end
+            if Box then
+                local Inset = Pressed.SliderStyle == "Fluent" and 7 or 0
+                Pressed.Value = Pressed.Min + math.clamp((Pointer.X - Box.X - Inset) / math.max(Box.Width - 2 * Inset, 1), 0, 1) * (Pressed.Max - Pressed.Min)
+            end
         end
         local Blink = Focus and math.floor((Clock and Clock() or Elapsed) * 2) or -1
         if Blink ~= LastBlink then LastBlink = Blink PaintDirty = true end
@@ -399,7 +450,9 @@ local function CreateLibrary(Drawing, Services)
             if Active and not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
         end
         if Hovered ~= HoveredItem then
+            if HoveredItem and not HoveredItem.Destroyed then HoveredItem.MouseLeave:Fire() end
             HoveredItem = Hovered
+            if Hovered then Hovered.MouseEnter:Fire() end
             table.clear(HoverChain)
             local Item = Hovered
             while Item do HoverChain[Item] = true Item = Item.Parent end
@@ -462,15 +515,20 @@ local function CreateLibrary(Drawing, Services)
     end
     function Library.create(Kind, Properties)
         assert(Kinds[Kind], "Unsupported UI control: " .. tostring(Kind))
+        if #Items >= 512 then
+            for Index = #Items, 1, -1 do if Items[Index].Destroyed then table.remove(Items, Index) end end
+        end
         assert(#Items < 512, "UI control limit reached")
         NextId += 1
         local Data = {Kind = Kind, Id = NextId, Position = Vector2.new(0, 0), Size = Vector2.new(200, 30), Visible = true, Active = true, ZIndex = 1000,
             BackgroundColor3 = Color3.fromRGB(28, 28, 30), BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(235, 235, 238), PlaceholderColor3 = Color3.fromRGB(130, 130, 138),
             Text = "", PlaceholderText = "", TextSize = 16, Font = Drawing.Fonts.Monospace or 3, Padding = 6, MaxLength = 65536, TextEditable = true, ClearTextOnFocus = false,
             Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0, CornerRadius = 0,
+            TextXAlignment = "Left", TextTransparency = 0, BorderSizePixel = 0, BorderColor3 = Color3.fromRGB(70, 70, 75), BorderTransparency = 0,
+            AccentColor3 = Color3.fromRGB(96, 205, 255), KnobColor3 = Color3.fromRGB(20, 25, 32), ScrollBarThickness = 3,
             Shapes = {}, ChangedEvents = {}, UndoItems = {}, RedoItems = {}, Destroyed = false}
         if Kind == "Slider" then Data.Value = 0 end
-        for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
+        for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseEnter", "MouseLeave", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
         local Object
         Object = setmetatable({}, {__index = function(_, Key) return Methods[Key] or Data[Key] end, __newindex = function(_, Key, Value)
             assert(not Data.Destroyed or Key == "Destroyed", "UI control was destroyed")

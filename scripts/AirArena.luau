@@ -7,11 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Remote = ReplicatedStorage:FindFirstChild("RE_gunmessage")
 
-local Previous = getgenv().AstraGunGame
+local Previous = getgenv().AstraAirArena
 if Previous and type(Previous.Unload) == "function" then pcall(Previous.Unload, Previous) end
 
 local State = {Running = true, Esp = {}, FireHook = false, OriginalFire = nil}
-getgenv().AstraGunGame = State
+getgenv().AstraAirArena = State
 
 local function Character(Player)
     return Player and Player.Character
@@ -98,7 +98,7 @@ local function GunEnvironment()
 end
 
 local Window = Fluent:CreateWindow({
-    Title = "Astra  |  Gun Game", SubTitle = "Vortex proof of concept",
+    Title = "Astra  |  Air Arena script", SubTitle = "",
     TabWidth = 148, Theme = "Dark", Acrylic = true
 })
 local Tabs = {
@@ -168,8 +168,8 @@ Tabs.Visuals:AddSlider("EspMaxDistance", {Title = "Max distance", Min = 100, Max
 
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
-SaveManager:SetFolder("AstraGunGame")
-InterfaceManager:SetFolder("AstraGunGame")
+SaveManager:SetFolder("AstraAirArena")
+InterfaceManager:SetFolder("AstraAirArena")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
@@ -252,10 +252,10 @@ task.spawn(function()
                 end
             else ClearEsp() end
         end)
-        if not Ok then warn("Astra Gun Game: " .. tostring(Error)) end
+        if not Ok then warn("Astra Air Arena script: " .. tostring(Error)) end
         task.wait(0.12)
     end
 end)
 
-Fluent:Notify({Title = "Astra Gun Game", Content = "Loaded. Gun hook: " .. tostring(State.FireHook)})
+Fluent:Notify({Title = "Astra Air Arena script", Content = "Loaded. Gun hook: " .. tostring(State.FireHook)})
 return State
