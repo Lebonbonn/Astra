@@ -43,7 +43,7 @@ Tabs and sections support `AddParagraph`, `AddButton`, `AddToggle`, `AddSlider`,
 - Color pickers expose `SetValueRGB(Color, Transparency)`. Their popup uses RGB sliders and an optional transparency slider.
 - Keybinds support `Always`, `Hold`, `Toggle`, `MB1`, `MB2`, rebinding, `GetState`, `OnClick`, and `ChangedCallback`. Textbox input does not trigger shortcuts.
 
-Windows have a draggable title bar, a minimize key/button, and a close confirmation dialog. `Window:Dialog` only invokes a callback after its button is clicked. `Fluent:Notify` displays a dismissible notification; `Duration` schedules expiry. At most four notifications are displayed by default (`Fluent.MaxNotifications`); the stack reflows when one is dismissed. `Fluent:Destroy` disconnects input handlers and removes its controls, notifications, and drawing objects.
+Windows have a draggable title bar, a minimize key/button, and a close confirmation dialog. `Window:Dialog` only invokes a callback after its button is clicked. `Fluent:Notify` displays a dismissible notification that expires after four seconds by default (`Fluent.NotificationDuration`). `Duration` overrides the lifetime, clamped to 0.5–30 seconds. At most three notifications are displayed by default (`Fluent.MaxNotifications`). Identical title/content messages reuse one notification and refresh its timer. The stack reflows when an entry expires or is dismissed. `Fluent:Destroy` disconnects input handlers and removes its controls, notifications, and drawing objects.
 
 Themes: Dark, Darker, Light, Aqua, Amethyst, and Rose. Included icon names: home, crosshair, swords, users, person-standing, eye, settings, shield, flame, triangle, circle-user, minus, x, chevron-right, and chevron-down.
 

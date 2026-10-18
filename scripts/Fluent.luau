@@ -25,9 +25,9 @@ local IconOk, IconData = pcall(function()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
-    Version = "1.1.1", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
+    Version = "1.1.2", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
-    Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 4, Ui = Ui,
+    Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 3, NotificationDuration = 4, Ui = Ui,
     SupportsAcrylic = false, UseAcrylic = false
 }
 Environment.AstraFluent = Fluent
@@ -518,10 +518,20 @@ end
 function Fluent:ToggleAcrylic(Value) self.UseAcrylic = false end
 function Fluent:Notify(Config)
     if self.Unloaded then return end
+    local Duration = tonumber(Config.Duration) or tonumber(self.NotificationDuration) or 4
+    if Duration ~= Duration then Duration = 4 end
+    Duration = math.clamp(Duration, 0.5, 30)
+    local Key = tostring(Config.Title or "Fluent") .. "\0" .. tostring(Config.Content or "") .. "\0" .. tostring(Config.SubContent or "")
+    for _, Item in self.Notifications do
+        if not Item.Destroyed and Item.NotificationKey == Key then
+            Item.RefreshNotification(Duration)
+            return Item.NotificationHandle
+        end
+    end
     local View = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or V2(1280, 720)
     local Text, Lines = Wrap((Config.Content or "") .. (Config.SubContent and "\n" .. Config.SubContent or ""), 265, 13)
     local Height = 54 + Lines * 16
-    local Limit = math.max(1, tonumber(self.MaxNotifications) or 4)
+    local Limit = math.max(1, math.floor(tonumber(self.MaxNotifications) or 3))
     while #self.Notifications >= Limit do
         local Old = table.remove(self.Notifications, 1)
         if not Old.Destroyed then Old:Destroy() end
@@ -544,6 +554,7 @@ function Fluent:Notify(Config)
     end
     Arrange()
     local function Remove()
+        if Toast.Destroyed then return end
         if not Toast.Destroyed then Toast:Destroy() end
         local Index = table.find(self.Notifications, Toast)
         if Index then table.remove(self.Notifications, Index) end
@@ -551,8 +562,19 @@ function Fluent:Notify(Config)
     end
     local Close = Click(Toast, "x", 273, 8, 22, 22, Remove)
     Close.BackgroundTransparency = 1
-    if Config.Duration ~= nil and task and task.delay then task.delay(Config.Duration, Remove) end
-    return {Destroy = Remove}
+    local Generation = 0
+    local function Refresh(Seconds)
+        Generation += 1
+        local Ticket = Generation
+        local function Expire() if Ticket == Generation then Remove() end end
+        if task and task.delay then task.delay(Seconds, Expire)
+        else task.spawn(function() task.wait(Seconds) Expire() end) end
+    end
+    Toast.NotificationKey = Key
+    Toast.NotificationHandle = {Destroy = Remove}
+    Toast.RefreshNotification = Refresh
+    Refresh(Duration)
+    return Toast.NotificationHandle
 end
 function Fluent:Destroy()
     if self.Unloaded then return end
