@@ -884,7 +884,7 @@ local function Dot(A, B) return A.X * B.X + A.Y * B.Y + A.Z * B.Z end
 local function Unit(Value)
     local Length = math.sqrt(Dot(Value, Value))
     if Length < 0.000001 then return nil end
-    return Vector3.new(Value.X / Length, Value.Y / Length, Value.Z / Length)
+    return rawget(Vector3, "new")(Value.X / Length, Value.Y / Length, Value.Z / Length)
 end
 Runtime.Dot = Dot
 Runtime.Unit = Unit
@@ -919,10 +919,10 @@ function Runtime.Project(Position)
     local X = View.Width / 2 + Dot(Difference, View.Right) * View.ScaleX / Divisor
     local Y = View.Height / 2 - Dot(Difference, View.Up) * View.ScaleY / Divisor
     local Visible = Depth > 0 and X >= 0 and X <= View.Width and Y >= 0 and Y <= View.Height
-    if X ~= X or Y ~= Y or Depth ~= Depth then return Vector3.new(0, 0, -1), false end
+    if X ~= X or Y ~= Y or Depth ~= Depth then return rawget(Vector3, "new")(0, 0, -1), false end
     X = math.clamp(X, -View.Width * 4, View.Width * 5)
     Y = math.clamp(Y, -View.Height * 4, View.Height * 5)
-    return Vector3.new(X, Y, Depth), Visible
+    return rawget(Vector3, "new")(X, Y, Depth), Visible
 end
 
 function Runtime.ScreenEdge(Position)
@@ -1809,7 +1809,7 @@ end
 local function Add(Names, Description, Callback, Usage) return Admin:Add(Names, Description, Callback, Usage) end
 local function Vector(Arguments, Start)
     Start = Start or 1
-    return Vector3.new(Number(Arguments[Start], -100000, 100000), Number(Arguments[Start + 1], -100000, 100000), Number(Arguments[Start + 2], -100000, 100000))
+    return rawget(Vector3, "new")(Number(Arguments[Start], -100000, 100000), Number(Arguments[Start + 1], -100000, 100000), Number(Arguments[Start + 2], -100000, 100000))
 end
 local function Rest(Arguments, Start) return table.concat(Arguments, " ", Start or 1) end
 local function FindPart(Query, Class)
@@ -1913,9 +1913,9 @@ Add("thaw unfreeze", "Restore movement before freeze", function()
 end)
 Add("goto to tp", "Move beside a player", function(Arguments)
     local Target = Admin:Players(Arguments[1])[1]
-    Admin:Teleport(assert(Position(Target), "Target character unavailable") + Vector3.new(3, 0, 0))
+    Admin:Teleport(assert(Position(Target), "Target character unavailable") + rawget(Vector3, "new")(3, 0, 0))
 end, "goto <player>")
-Add("tweengoto tweento", "Move gradually beside a player", function(Arguments) Admin:TweenTo(assert(Position(Admin:Players(Arguments[1])[1]), "Target character unavailable") + Vector3.new(3, 0, 0)) end)
+Add("tweengoto tweento", "Move gradually beside a player", function(Arguments) Admin:TweenTo(assert(Position(Admin:Players(Arguments[1])[1]), "Target character unavailable") + rawget(Vector3, "new")(3, 0, 0)) end)
 Add("tpposition teleportpos tppos", "Move to coordinates", function(Arguments) Admin:Teleport(Vector(Arguments)) end, "tpposition <x> <y> <z>")
 Add("tweentpposition", "Move gradually to coordinates", function(Arguments) Admin:TweenTo(Vector(Arguments)) end)
 Add("getposition pos", "Display current coordinates", function() local _, R = Character() return string.format("%.3f, %.3f, %.3f", R.Position.X, R.Position.Y, R.Position.Z) end)
@@ -1929,7 +1929,7 @@ end)
 Add("offset", "Move relative to your current position", function(Arguments) local _, R = Character() Admin:Teleport(R.Position + Vector(Arguments)) end)
 Add("loopgoto", "Follow a player's position", function(Arguments)
     local Target = Admin:Players(Arguments[1])[1]
-    Admin:Loop("LoopGoto", 0.1, function() local M, R = Character() local P = assert(Position(Target), "Target character unavailable") M:PivotTo(R.CFrame + (P + Vector3.new(3, 0, 0) - R.Position)) end)
+    Admin:Loop("LoopGoto", 0.1, function() local M, R = Character() local P = assert(Position(Target), "Target character unavailable") M:PivotTo(R.CFrame + (P + rawget(Vector3, "new")(3, 0, 0) - R.Position)) end)
 end)
 Add("unloopgoto", "Stop following a player", function() Admin.Loops.LoopGoto = nil end)
 Add("setwaypoint", "Save your current location", function(Arguments)
@@ -1941,10 +1941,10 @@ Add("waypointpos", "Save coordinates as a waypoint", function(Arguments)
     local Point = Vector(Arguments, 2) Admin.Waypoints[Name] = {X = Point.X, Y = Point.Y, Z = Point.Z} Admin:Save()
 end)
 Add("waypoint wp", "Move to a saved waypoint", function(Arguments)
-    local Point = assert(Admin.Waypoints[Arguments[1]], "Waypoint not found") Admin:Teleport(Vector3.new(Point.X, Point.Y, Point.Z))
+    local Point = assert(Admin.Waypoints[Arguments[1]], "Waypoint not found") Admin:Teleport(rawget(Vector3, "new")(Point.X, Point.Y, Point.Z))
 end)
 Add("tweenwaypoint", "Move gradually to a waypoint", function(Arguments)
-    local Point = assert(Admin.Waypoints[Arguments[1]], "Waypoint not found") Admin:TweenTo(Vector3.new(Point.X, Point.Y, Point.Z))
+    local Point = assert(Admin.Waypoints[Arguments[1]], "Waypoint not found") Admin:TweenTo(rawget(Vector3, "new")(Point.X, Point.Y, Point.Z))
 end)
 Add("waypoints", "Open saved waypoints", function() Admin.Mode = "Waypoints" Admin.Open = true end)
 Add("deletewaypoint", "Delete a saved waypoint", function(Arguments) Admin.Waypoints[assert(Arguments[1], "Enter a waypoint name")] = nil Admin:Save() end)
@@ -1955,7 +1955,7 @@ Add("tweenspeed", "Set gradual movement speed", function(Arguments) Admin.TweenS
 for _, Pair in {{"gotopart", false, false}, {"gotopartclass", true, false}, {"gotomodel", false, false}, {"tweengotopart", false, true}, {"tweengotopartclass", true, true}, {"tweengotomodel", false, true}} do
     local Name, Class, Tween = Pair[1], Pair[2], Pair[3]
     Add(Name, "Move to a matching instance", function(Arguments)
-        local Point = ObjectPosition(FindPart(Rest(Arguments), Class)) + Vector3.new(0, 3, 0)
+        local Point = ObjectPosition(FindPart(Rest(Arguments), Class)) + rawget(Vector3, "new")(0, 3, 0)
         if Tween then Admin:TweenTo(Point) else Admin:Teleport(Point) end
     end)
 end
@@ -2007,7 +2007,7 @@ Add("spin", "Rotate the character continuously", function(Arguments) Admin.SpinS
 Add("unspin", "Stop rotating", function() Admin.SpinSpeed = nil end)
 Add("stareat lookat", "Face a player", function(Arguments)
     local Target = Admin:Players(Arguments[1])[1]
-    Admin:Loop("Stare", 0, function() local M, R = Character() local Point = assert(Position(Target), "Target unavailable") M:PivotTo(CFrame.lookAt(R.Position, Vector3.new(Point.X, R.Position.Y, Point.Z))) end)
+    Admin:Loop("Stare", 0, function() local M, R = Character() local Point = assert(Position(Target), "Target unavailable") M:PivotTo(CFrame.lookAt(R.Position, rawget(Vector3, "new")(Point.X, R.Position.Y, Point.Z))) end)
 end)
 Add("unstareat", "Stop facing a player", function() Admin.Loops.Stare = nil end)
 
@@ -2056,15 +2056,15 @@ Add("inspect", "Show matching instance properties", function(Arguments)
     local Object = FindPart(Rest(Arguments), false)
     return Object.ClassName .. " " .. Object.Name .. " | " .. tostring(ObjectPosition(Object))
 end)
-Add("bringpart", "Move a local part beside you", function(Arguments) local _, R = Character() local Part = FindPart(Rest(Arguments), false) Admin:Set(Part, "Position", R.Position + Vector3.new(3, 0, 0)) end)
-Add("bringpartclass", "Move a matching local part beside you", function(Arguments) local _, R = Character() local Part = FindPart(Rest(Arguments), true) Admin:Set(Part, "Position", R.Position + Vector3.new(3, 0, 0)) end)
+Add("bringpart", "Move a local part beside you", function(Arguments) local _, R = Character() local Part = FindPart(Rest(Arguments), false) Admin:Set(Part, "Position", R.Position + rawget(Vector3, "new")(3, 0, 0)) end)
+Add("bringpartclass", "Move a matching local part beside you", function(Arguments) local _, R = Character() local Part = FindPart(Rest(Arguments), true) Admin:Set(Part, "Position", R.Position + rawget(Vector3, "new")(3, 0, 0)) end)
 Add("anchoredparts", "List anchored world parts", function()
     local Names = {} for _, Object in workspace:GetDescendants() do if Object.Anchored == true then Names[#Names + 1] = Object.Name end end return table.concat(Names, ", ")
 end)
 Add("freezeunanchored", "Anchor unanchored world parts locally", function() for _, Object in workspace:GetDescendants() do if Object.Anchored == false then Admin:Set(Object, "Anchored", true, false) end end end)
 Add("thawunanchored", "Restore anchored parts", function() for Object, Values in Admin.Undo do if Values.Anchored then pcall(function() Object.Anchored = Values.Anchored.Value end) end end end)
-Add("deletevelocity", "Clear your current velocity", function() local _, R = Character() R.Velocity = Vector3.new(0, 0, 0) end)
-Add("tpunanchored", "Move unanchored local parts beside you", function() local _, R = Character() for _, Object in workspace:GetDescendants() do if Object.Anchored == false and Object.Position then Admin:Set(Object, "Position", R.Position + Vector3.new(0, 3, 0), false) end end end)
+Add("deletevelocity", "Clear your current velocity", function() local _, R = Character() R.Velocity = rawget(Vector3, "new")(0, 0, 0) end)
+Add("tpunanchored", "Move unanchored local parts beside you", function() local _, R = Character() for _, Object in workspace:GetDescendants() do if Object.Anchored == false and Object.Position then Admin:Set(Object, "Position", R.Position + rawget(Vector3, "new")(0, 3, 0), false) end end end)
 
 Add("saveinstance savemap", "Save the client scene to Workspace", function(Arguments) local Path, Report = saveinstance(Arguments[1] or "Game.vrtx") return tostring(Path) .. " | " .. tostring(Report.Instances) .. " instances" end)
 Add("loadscript execfile", "Run a Luau file from Workspace", function(Arguments) local Chunk = assert(loadfile(assert(Arguments[1], "Enter a Workspace script path"))) Chunk() end)
@@ -2173,8 +2173,8 @@ function Admin:SetFlying(Enabled)
     assert(Root, "Character unavailable")
     local Body = Instance.new("BodyVelocity")
     local Success, Failure = pcall(function()
-        Body.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-        Body.Velocity = Vector3.new(0, 0, 0)
+        Body.MaxForce = rawget(Vector3, "new")(1e5, 1e5, 1e5)
+        Body.Velocity = rawget(Vector3, "new")(0, 0, 0)
         Body.Parent = Root
     end)
     if not Success then pcall(function() Body:Destroy() end) error(Failure) end
@@ -2192,8 +2192,8 @@ Runtime.Connect(Input.InputBegan, function(Event, Processed)
             if not Root then return end
             if Admin.JumpBody then pcall(function() Admin.JumpBody:Destroy() end) end
             local Body = Instance.new("BodyVelocity")
-            Body.MaxForce = Vector3.new(0, 1e5, 0)
-            Body.Velocity = Vector3.new(0, Humanoid and Humanoid.JumpPower or 50, 0)
+            Body.MaxForce = rawget(Vector3, "new")(0, 1e5, 0)
+            Body.Velocity = rawget(Vector3, "new")(0, Humanoid and Humanoid.JumpPower or 50, 0)
             Body.Parent = Root
             Admin.JumpBody = Body
             task.delay(0.12, function() pcall(function() Body:Destroy() end) if Admin.JumpBody == Body then Admin.JumpBody = nil end end)
@@ -2229,21 +2229,21 @@ Runtime.Step("AdminMovement", 100, function(Delta)
         if Admin.Flying then
             if not Admin.Flight or Admin.Flight.Character ~= Model._id then Admin:SetFlying(true) end
             local Frame = workspace.CurrentCamera.CFrame
-            local Movement = Vector3.new(0, 0, 0)
+            local Movement = rawget(Vector3, "new")(0, 0, 0)
             if not Admin.Focused and not Runtime.InterfaceActive then
                 if Input:IsKeyDown(Enum.KeyCode.W) then Movement += Frame.LookVector end
                 if Input:IsKeyDown(Enum.KeyCode.S) then Movement -= Frame.LookVector end
                 if Input:IsKeyDown(Enum.KeyCode.D) then Movement += Frame.RightVector end
                 if Input:IsKeyDown(Enum.KeyCode.A) then Movement -= Frame.RightVector end
-                if Input:IsKeyDown(Enum.KeyCode.Space) or Admin.QeFly and Input:IsKeyDown(Enum.KeyCode.E) then Movement += Vector3.new(0, 1, 0) end
-                if Input:IsKeyDown(Enum.KeyCode.LeftControl) or Admin.QeFly and Input:IsKeyDown(Enum.KeyCode.Q) then Movement -= Vector3.new(0, 1, 0) end
+                if Input:IsKeyDown(Enum.KeyCode.Space) or Admin.QeFly and Input:IsKeyDown(Enum.KeyCode.E) then Movement += rawget(Vector3, "new")(0, 1, 0) end
+                if Input:IsKeyDown(Enum.KeyCode.LeftControl) or Admin.QeFly and Input:IsKeyDown(Enum.KeyCode.Q) then Movement -= rawget(Vector3, "new")(0, 1, 0) end
             end
             local Direction = Runtime.Unit(Movement)
-            Admin.Flight.Body.Velocity = Direction and Direction * Admin.FlySpeed or Vector3.new(0, 0, 0)
+            Admin.Flight.Body.Velocity = Direction and Direction * Admin.FlySpeed or rawget(Vector3, "new")(0, 0, 0)
         end
         if Admin.Float or Admin.SpinSpeed then
             local Frame = Root.CFrame
-            if Admin.Float then Frame += Vector3.new(0, Admin.FloatHeight - Root.Position.Y, 0) end
+            if Admin.Float then Frame += rawget(Vector3, "new")(0, Admin.FloatHeight - Root.Position.Y, 0) end
             if Admin.SpinSpeed then Frame *= CFrame.Angles(0, math.rad(Admin.SpinSpeed) * math.clamp(Delta, 0, 0.1)) end
             Model:PivotTo(Frame)
         end
@@ -2283,12 +2283,12 @@ Runtime.Step("WallPhase", 110, function()
     local Root = Model and Model.HumanoidRootPart
     if not Root then return end
     local Frame = workspace.CurrentCamera.CFrame
-    local Direction = Vector3.new(0, 0, 0)
+    local Direction = rawget(Vector3, "new")(0, 0, 0)
     if Input:IsKeyDown(Enum.KeyCode.W) then Direction += Frame.LookVector end
     if Input:IsKeyDown(Enum.KeyCode.S) then Direction -= Frame.LookVector end
     if Input:IsKeyDown(Enum.KeyCode.D) then Direction += Frame.RightVector end
     if Input:IsKeyDown(Enum.KeyCode.A) then Direction -= Frame.RightVector end
-    Direction = Runtime.Unit(Vector3.new(Direction.X, 0, Direction.Z))
+    Direction = Runtime.Unit(rawget(Vector3, "new")(Direction.X, 0, Direction.Z))
     if not Direction then return end
     local Filter = {FilterDescendantsInstances = {Model}, FilterType = Enum.RaycastFilterType.Exclude}
     local Origin = Root.Position
@@ -2300,8 +2300,8 @@ Runtime.Step("WallPhase", 110, function()
     local Exit = workspace:Raycast(Origin + Direction * 12, Direction * -12, Filter)
     if not Exit or Exit.Instance ~= Hit.Instance or not Exit.Normal or Exit.Normal.X * Direction.X + Exit.Normal.Z * Direction.Z <= 0 then return end
     local Target = Exit.Position + Direction * (math.max(Root.Size.X, Root.Size.Z) / 2 + 0.5)
-    Target = Vector3.new(Target.X, Origin.Y, Target.Z)
-    local Floor = workspace:Raycast(Target, Vector3.new(0, -math.max(6, Root.Size.Y + 3), 0), Filter)
+    Target = rawget(Vector3, "new")(Target.X, Origin.Y, Target.Z)
+    local Floor = workspace:Raycast(Target, rawget(Vector3, "new")(0, -math.max(6, Root.Size.Y + 3), 0), Filter)
     if not Floor or not Floor.Normal or Floor.Normal.Y < 0.5 then return end
     Model:PivotTo(Root.CFrame + (Target - Origin))
 end)
@@ -2311,7 +2311,7 @@ Runtime.Step("AdminWaypoints", 250, function()
     if not Admin.ShowWaypoints or not Runtime.View then return end
     for Name, Point in Admin.Waypoints do
         if type(Point) == "table" and type(Point.X) == "number" and type(Point.Y) == "number" and type(Point.Z) == "number" then
-            local Screen, Visible = Runtime.Project(Vector3.new(Point.X, Point.Y, Point.Z))
+            local Screen, Visible = Runtime.Project(rawget(Vector3, "new")(Point.X, Point.Y, Point.Z))
             if Visible then
                 if not WaypointDrawings[Name] then WaypointDrawings[Name] = Runtime.Drawing("Text", {Size = 14, Font = Drawing.Fonts.Monospace, Center = true, Outline = true, Color = Color3.new(1, 1, 1)}) end
                 local Object = WaypointDrawings[Name]
