@@ -1,4 +1,4 @@
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/73da9f2a8203a2f85e22d1c7ccb4f0b18225f394/scripts/Fluent.luau"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/52efa41305bb5d18984c667e919b5767964d6b5c/scripts/Fluent.luau"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/FluentSaveManager.luau"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/FluentInterfaceManager.luau"))()
 
