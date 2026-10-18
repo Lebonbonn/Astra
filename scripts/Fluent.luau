@@ -18,11 +18,14 @@ local Palette = {
     Hover = RGB(47, 59, 75), Text = RGB(238, 242, 247), Muted = RGB(153, 166, 183),
     Accent = RGB(88, 166, 244), Selected = RGB(39, 72, 104)
 }
-local Fluent = {Version = "Astra 0.1", Options = {}, Unloaded = false, Theme = "Dark"}
+local Fluent = {Version = "Astra 0.1", Options = {}, Unloaded = false, Theme = "Dark", Keybinds = {}}
 local Window
 
 local function Create(Kind, Parent, X, Y, W, H, Properties)
     Properties = Properties or {}
+    if Properties.CornerRadius == nil then
+        Properties.CornerRadius = Kind == "Frame" and 8 or Kind == "ScrollingFrame" and 0 or 6
+    end
     Properties.Parent = Parent
     Properties.Position = V2(X, Y)
     Properties.Size = V2(W, H)
@@ -107,7 +110,7 @@ local function Row(Tab, Height, Title, Description)
 end
 
 function TabMethods:AddParagraph(Config)
-    local Frame, Width = Row(self, Config.Content and 66 or 42, Config.Title or "", Config.Content)
+    local Frame, Width = Row(self, Config.Content and 66 or 42, Config.Title or "")
     if Config.Content then Label(Frame, Config.Content, 12, 34, Width - 24, 26, 12, Palette.Muted) end
     return Frame
 end
@@ -187,6 +190,7 @@ function TabMethods:AddKeybind(Id, Config)
         self.Value = tostring(Value)
         if self.Control then self.Control.Text = self.Value end
     end
+    Fluent.Keybinds[#Fluent.Keybinds + 1] = Item
     return Item
 end
 
@@ -327,4 +331,29 @@ end
 Fluent.SaveManager = SaveManager
 Fluent.InterfaceManager = InterfaceManager
 Fluent.Ui = Ui
+local Input = game:GetService("UserInputService")
+if Input and Input.InputBegan then
+    Input.InputBegan:Connect(function(Event)
+        if Fluent.Unloaded then return end
+        local Name = Event.KeyCode and Event.KeyCode.Name
+        if not Name or Name == "Unknown" then return end
+        for _, Item in Fluent.Keybinds do
+            if Item.Listening then
+                Item.Listening = false
+                Item:SetValue(Name)
+                if Item.ChangedCallback then pcall(Item.ChangedCallback, Name) end
+            elseif Item.Value == Name then
+                Item.State = Item.Mode ~= "Toggle" or not Item.State
+                if Item.Callback then pcall(Item.Callback, Item.State) end
+                if Item.ClickCallback then pcall(Item.ClickCallback, Item.State) end
+            end
+        end
+    end)
+    Input.InputEnded:Connect(function(Event)
+        local Name = Event.KeyCode and Event.KeyCode.Name
+        for _, Item in Fluent.Keybinds do
+            if Item.Value == Name and Item.Mode == "Hold" then Item.State = false end
+        end
+    end)
+end
 return Fluent

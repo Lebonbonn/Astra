@@ -291,7 +291,7 @@ local function CreateLibrary(Drawing, Services)
         Item.AbsolutePosition = Vector2.new(Box.X, Box.Y)
         Item.AbsoluteSize = Item.Size
         local Layer = GetLayer(Item)
-        local Base = {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = true, Color = Item.BackgroundColor3, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer}
+        local Base = {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = true, Color = Item.BackgroundColor3, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer, Rounding = Item.CornerRadius}
         if HoverChain[Item] and not Item.Multiline then
             Base.Color = Item.HoverColor3 or Base.Color
             if Item.HoverTransparency ~= nil then Base.Transparency = 1 - Item.HoverTransparency end
@@ -467,7 +467,7 @@ local function CreateLibrary(Drawing, Services)
         local Data = {Kind = Kind, Id = NextId, Position = Vector2.new(0, 0), Size = Vector2.new(200, 30), Visible = true, Active = true, ZIndex = 1000,
             BackgroundColor3 = Color3.fromRGB(28, 28, 30), BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(235, 235, 238), PlaceholderColor3 = Color3.fromRGB(130, 130, 138),
             Text = "", PlaceholderText = "", TextSize = 16, Font = Drawing.Fonts.Monospace or 3, Padding = 6, MaxLength = 65536, TextEditable = true, ClearTextOnFocus = false,
-            Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0,
+            Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0, CornerRadius = 0,
             Shapes = {}, ChangedEvents = {}, UndoItems = {}, RedoItems = {}, Destroyed = false}
         if Kind == "Slider" then Data.Value = 0 end
         for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
@@ -480,7 +480,7 @@ local function CreateLibrary(Drawing, Services)
             elseif Key == "Text" then assert(type(Value) == "string" and #Value <= 65536, "Invalid text")
             elseif Key == "Position" or Key == "Size" then assert(Value and type(Value.X) == "number" and type(Value.Y) == "number" and Value.X == Value.X and Value.Y == Value.Y and math.abs(Value.X) <= 65536 and math.abs(Value.Y) <= 65536, "Invalid UI bounds")
             elseif Key == "MaxLength" then assert(type(Value) == "number" and Value >= 0 and Value <= 65536, "Invalid text limit") end
-            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" then
+            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" or Key == "CornerRadius" then
                 assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid UI number")
             elseif Key == "BackgroundTransparency" or Key == "HoverTransparency" then assert(type(Value) == "number" and Value >= 0 and Value <= 1, "Invalid transparency")
             elseif Key == "TextColor3" or Key == "BackgroundColor3" or Key == "PlaceholderColor3" or Key == "HoverColor3" then assert(Value and type(Value.R) == "number" and type(Value.G) == "number" and type(Value.B) == "number", "Invalid UI color") end
