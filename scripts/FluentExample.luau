@@ -1,6 +1,6 @@
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent.luau?v=1.1.1"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentSaveManager.luau"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentInterfaceManager.luau"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/73da9f2a8203a2f85e22d1c7ccb4f0b18225f394/scripts/Fluent.luau"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/FluentSaveManager.luau"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/FluentInterfaceManager.luau"))()
 
 local Window = Fluent:CreateWindow({
     Title = "Fluent " .. Fluent.Version,
