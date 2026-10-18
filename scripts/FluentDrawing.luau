@@ -1,5 +1,5 @@
 local function CreateLibrary(Drawing, Services)
-    local Library = {UiVersion = 6}
+    local Library = {UiVersion = 7}
     local HoveredItem
     local HoverChain = {}
     local Items, Connections = {}, {}
@@ -85,7 +85,11 @@ local function CreateLibrary(Drawing, Services)
             local Equal = Previous == Value
             if Previous and (Property == "Position" or Property == "Size" and Kind ~= "Text") then Equal = Previous.X == Value.X and Previous.Y == Value.Y
             elseif Previous and Property == "Color" then Equal = Previous.R == Value.R and Previous.G == Value.G and Previous.B == Value.B end
-            if not Equal then Entry.Object[Property] = Value Entry.Values[Property] = Value end
+            if not Equal then
+                if Property == "Rounding" then pcall(function() Entry.Object[Property] = Value end)
+                else Entry.Object[Property] = Value end
+                Entry.Values[Property] = Value
+            end
         end
         local Parent, Clip = Item.Parent, nil
         while Parent do
@@ -266,7 +270,9 @@ local function CreateLibrary(Drawing, Services)
             Hit.Cursor = Caret(Hit)
             if not Keys.LeftShift and not Keys.RightShift then Hit.Anchor = Hit.Cursor end
             Hit.LastPointerX = Pointer.X
-        elseif Hit.Draggable then Drag = {Item = Hit, Offset = Pointer - Hit.Position}
+        elseif Hit.Draggable then
+            local Target = Hit.DragTarget or Hit
+            if Library.isui(Target) then Drag = {Item = Target, Offset = Pointer - Target.Position} end
         end
     end
     local function PointerUp(Button)
@@ -308,6 +314,9 @@ local function CreateLibrary(Drawing, Services)
         if Item.BorderSizePixel > 0 then
             Shape(Item, "Border", "Square", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = false,
                 Color = Item.BorderColor3, Transparency = 1 - Item.BorderTransparency, Thickness = Item.BorderSizePixel, Rounding = Item.CornerRadius, ZIndex = Layer + 1})
+        elseif Item.Shapes.Border then
+            Item.Shapes.Border.Object.Visible = false
+            Item.Shapes.Border.Values.Visible = false
         end
         if Switch then
             local Width, Height = math.min(36, Box.Width), math.min(18, Box.Height)
@@ -450,12 +459,13 @@ local function CreateLibrary(Drawing, Services)
             if Active and not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
         end
         if Hovered ~= HoveredItem then
-            if HoveredItem and not HoveredItem.Destroyed then HoveredItem.MouseLeave:Fire() end
             HoveredItem = Hovered
-            if Hovered then Hovered.MouseEnter:Fire() end
-            table.clear(HoverChain)
+            local Previous = HoverChain
+            HoverChain = {}
             local Item = Hovered
             while Item do HoverChain[Item] = true Item = Item.Parent end
+            for Old in Previous do if not HoverChain[Old] and not Old.Destroyed then Old.MouseLeave:Fire() end end
+            for New in HoverChain do if not Previous[New] and not New.Destroyed then New.MouseEnter:Fire() end end
             PaintDirty = true
         end
         local Repaint = PaintDirty
@@ -538,10 +548,10 @@ local function CreateLibrary(Drawing, Services)
             elseif Key == "Text" then assert(type(Value) == "string" and #Value <= 65536, "Invalid text")
             elseif Key == "Position" or Key == "Size" then assert(Value and type(Value.X) == "number" and type(Value.Y) == "number" and Value.X == Value.X and Value.Y == Value.Y and math.abs(Value.X) <= 65536 and math.abs(Value.Y) <= 65536, "Invalid UI bounds")
             elseif Key == "MaxLength" then assert(type(Value) == "number" and Value >= 0 and Value <= 65536, "Invalid text limit") end
-            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" or Key == "CornerRadius" then
+            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" or Key == "CornerRadius" or Key == "BorderSizePixel" or Key == "ScrollBarThickness" then
                 assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid UI number")
-            elseif Key == "BackgroundTransparency" or Key == "HoverTransparency" then assert(type(Value) == "number" and Value >= 0 and Value <= 1, "Invalid transparency")
-            elseif Key == "TextColor3" or Key == "BackgroundColor3" or Key == "PlaceholderColor3" or Key == "HoverColor3" then assert(Value and type(Value.R) == "number" and type(Value.G) == "number" and type(Value.B) == "number", "Invalid UI color") end
+            elseif Key == "BackgroundTransparency" or Key == "HoverTransparency" or Key == "BorderTransparency" or Key == "TextTransparency" then assert(type(Value) == "number" and Value >= 0 and Value <= 1, "Invalid transparency")
+            elseif Key == "TextColor3" or Key == "BackgroundColor3" or Key == "PlaceholderColor3" or Key == "HoverColor3" or Key == "BorderColor3" or Key == "AccentColor3" or Key == "KnobColor3" then assert(Value and type(Value.R) == "number" and type(Value.G) == "number" and type(Value.B) == "number", "Invalid UI color") end
             if Key == "TextSize" then assert(Value >= 1 and Value <= 10000, "Invalid text size") end
             if Key == "Value" and Data.Kind == "Slider" then assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid slider value") end
             if Data[Key] == Value then return end

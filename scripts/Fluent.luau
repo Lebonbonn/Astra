@@ -11,10 +11,10 @@ if Previous and Previous.AstraVersion and type(Previous.Destroy) == "function" t
 local Ui
 if Drawing and type(Drawing.newcontext) == "function" then
     local Ok, Result = pcall(Drawing.newcontext)
-    if Ok and Result and (Result.UiVersion or 0) >= 6 then Ui = Result end
+    if Ok and Result and (Result.UiVersion or 0) >= 7 then Ui = Result end
 end
 if not Ui then
-    Ui = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentDrawing.luau?v=1.1.0")))()(Drawing)
+    Ui = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentDrawing.luau?v=1.1.1")))()(Drawing)
 end
 local Font = Drawing.Fonts and (Drawing.Fonts.SourceSans or Drawing.Fonts.Plex or Drawing.Fonts.UI) or 0
 local Icons = {}
@@ -23,9 +23,9 @@ local IconOk, IconData = pcall(function()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
-    Version = "1.1.0", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
+    Version = "1.1.1", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
-    Connections = {}, Keybinds = {}, Notifications = {}, Ui = Ui,
+    Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 4, Ui = Ui,
     SupportsAcrylic = false, UseAcrylic = false
 }
 Environment.AstraFluent = Fluent
@@ -519,16 +519,33 @@ function Fluent:Notify(Config)
     local View = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or V2(1280, 720)
     local Text, Lines = Wrap((Config.Content or "") .. (Config.SubContent and "\n" .. Config.SubContent or ""), 265, 13)
     local Height = 54 + Lines * 16
+    local Limit = math.max(1, tonumber(self.MaxNotifications) or 4)
+    while #self.Notifications >= Limit do
+        local Old = table.remove(self.Notifications, 1)
+        if not Old.Destroyed then Old:Destroy() end
+    end
     local Toast = Create("Frame", nil, math.max(8, View.X - 324), math.max(8, View.Y - Height - 20 - #self.Notifications * (Height + 8)), 304, Height,
         {ZIndex = 6000, BackgroundTransparency = 0, CornerRadius = 7, BorderSizePixel = 1}, {BackgroundColor3 = "Raised", BorderColor3 = "Border"})
     Label(Toast, Config.Title or "Fluent", 14, 10, 256, 22, 16)
     local Content = Label(Toast, Text, 14, 37, 265, Lines * 16 + 3, 13, "Muted")
     Content.Multiline = true
     self.Notifications[#self.Notifications + 1] = Toast
+    local function Arrange()
+        local Offset = 20
+        for Index = #self.Notifications, 1, -1 do
+            local Item = self.Notifications[Index]
+            if not Item.Destroyed then
+                Item.Position = V2(math.max(8, View.X - 324), math.max(8, View.Y - Offset - Item.Size.Y))
+                Offset += Item.Size.Y + 8
+            end
+        end
+    end
+    Arrange()
     local function Remove()
         if not Toast.Destroyed then Toast:Destroy() end
         local Index = table.find(self.Notifications, Toast)
         if Index then table.remove(self.Notifications, Index) end
+        Arrange()
     end
     local Close = Click(Toast, "x", 273, 8, 22, 22, Remove)
     Close.BackgroundTransparency = 1
