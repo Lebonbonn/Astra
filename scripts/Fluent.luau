@@ -1,4 +1,5 @@
 local RGB, V2 = Color3.fromRGB, Vector2.new
+local AssetBase = "https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/"
 local Environment = type(getgenv) == "function" and getgenv() or _G
 if not UDim2 then
     Environment.UDim2 = {
@@ -14,12 +15,13 @@ if Drawing and type(Drawing.newcontext) == "function" then
     if Ok and Result and (Result.UiVersion or 0) >= 7 then Ui = Result end
 end
 if not Ui then
-    Ui = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentDrawing.luau?v=1.1.1")))()(Drawing)
+    Ui = assert(loadstring(game:HttpGet(AssetBase .. "FluentDrawing.luau")))()(Drawing)
+    assert((Ui.UiVersion or 0) >= 7, "Fluent requires Drawing UI version 7")
 end
 local Font = Drawing.Fonts and (Drawing.Fonts.SourceSans or Drawing.Fonts.Plex or Drawing.Fonts.UI) or 0
 local Icons = {}
 local IconOk, IconData = pcall(function()
-    return assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentIcons.luau")))()
+    return assert(loadstring(game:HttpGet(AssetBase .. "FluentIcons.luau")))()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
@@ -604,7 +606,7 @@ if Input and Input.InputBegan then
 end
 setmetatable(Fluent, {__index = function(Self, Key)
     if Key ~= "SaveManager" and Key ~= "InterfaceManager" then return nil end
-    local Manager = assert(loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent" .. Key .. ".luau")))()
+    local Manager = assert(loadstring(game:HttpGet(AssetBase .. "Fluent" .. Key .. ".luau")))()
     Manager:SetLibrary(Self)
     rawset(Self, Key, Manager)
     return Manager
