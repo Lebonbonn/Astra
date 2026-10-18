@@ -13,6 +13,7 @@ end
 
 local V2 = Vector2.new
 local RGB = Color3.fromRGB
+local Font = Drawing.Fonts and (Drawing.Fonts.SourceSans or Drawing.Fonts.Plex or Drawing.Fonts.UI) or 0
 local Palette = {
     Background = RGB(19, 24, 32), Surface = RGB(29, 36, 47), Raised = RGB(37, 46, 59),
     Hover = RGB(47, 59, 75), Text = RGB(238, 242, 247), Muted = RGB(153, 166, 183),
@@ -36,7 +37,7 @@ local function Label(Parent, Text, X, Y, W, H, Size, Color)
     return Create("TextLabel", Parent, X, Y, W, H, {
         Text = tostring(Text or ""), TextSize = Size or 14, TextColor3 = Color or Palette.Text,
         BackgroundTransparency = 1, Active = false, Padding = 0,
-        Font = Drawing.Fonts and (Drawing.Fonts.UI or Drawing.Fonts.Monospace) or 3
+        Font = Font
     })
 end
 
@@ -45,7 +46,7 @@ local function Button(Parent, Text, X, Y, W, H, Callback)
         Text = tostring(Text), TextSize = 13, Padding = 7,
         BackgroundColor3 = Palette.Raised, HoverColor3 = Palette.Hover,
         TextColor3 = Palette.Text,
-        Font = Drawing.Fonts and (Drawing.Fonts.UI or Drawing.Fonts.Monospace) or 3
+        Font = Font
     })
     Item.MouseButton1Click:Connect(function()
         local Ok, Error = pcall(Callback)

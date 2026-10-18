@@ -92,7 +92,7 @@ local function GunEnvironment()
     local Client = Scripts and Scripts:FindFirstChild("GunClient")
     if Client and type(getsenv) == "function" then
         local Ok, Environment = pcall(getsenv, Client)
-        if Ok and type(Environment) == "table" then return Environment end
+        if Ok and type(Environment) == "table" and type(Environment.gun) == "table" then return Environment end
     end
     return type(getrenv) == "function" and getrenv() or nil
 end
@@ -110,6 +110,7 @@ local Tabs = {
     Settings = Window:AddTab({Title = "Settings", Icon = "settings"})
 }
 local Options = Fluent.Options
+State.Options = Options
 
 Tabs.Aim:AddParagraph({Title = "Aim assistant", Content = "Camera aim uses visible players inside the FOV."})
 Tabs.Aim:AddToggle("Aimbot", {Title = "Camera aimbot", Default = false})
@@ -186,7 +187,8 @@ if Gun and type(Gun.fire) == "function" and type(hookfunction) == "function" the
             return State.OriginalFire(Self, ...)
         end)
     end)
-    if Ok and type(Original) == "function" then State.OriginalFire = Original State.FireHook = true end
+    if Ok and type(Original) == "function" then State.OriginalFire = Original State.FireHook = true
+    else State.HookError = tostring(Original) end
 end
 
 local function ClearEsp()
