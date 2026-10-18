@@ -315,7 +315,9 @@ function TabMethods:AddDropdown(Id, Config)
     function Item:SetValues(Values)
         self.Values = Values or self.Values
         if self.Multi then self:SetValue(self.Value)
-        elseif not table.find(self.Values, self.Value) then self:SetValue(self.AllowNull and nil or self.Values[1]) end
+        elseif not table.find(self.Values, self.Value) then
+            if self.AllowNull then self:SetValue(nil) else self:SetValue(self.Values[1]) end
+        end
         ClosePopup()
     end
     function Item:Open()
@@ -483,6 +485,7 @@ function Fluent:CreateWindow(Config)
         Height = Height, SidebarWidth = SidebarWidth, Tabs = {}, MinimizeKey = KeyName(Config.MinimizeKey or "LeftControl")}, {__index = WindowMethods})
     self.Window = Window
     local Minimize = Click(Header, "", Width - 78, 5, 33, 32, function() Window:Minimize() end)
+    if not Icons.minus then Minimize.Text = "-" end
     Minimize.BackgroundTransparency = 1
     Icon(Minimize, "minus", 8, 8, 16)
     local Close = Click(Header, "", Width - 41, 5, 33, 32, function()
@@ -491,6 +494,7 @@ function Fluent:CreateWindow(Config)
         }})
     end)
     Close.BackgroundTransparency = 1
+    if not Icons.x then Close.Text = "x" end
     Icon(Close, "x", 8, 8, 16)
     return Window
 end
@@ -499,6 +503,11 @@ function Fluent:SetTheme(Name)
     self.Theme, Palette = Name, Colors(Name)
     for _, Binding in ThemeBindings do
         if not Binding[1].Destroyed then for Key, Color in Binding[2] do Binding[1][Key] = Palette[Color] end end
+    end
+    for _, Item in self.Options do
+        if Item.Type == "Colorpicker" and Item.Control and not Item.Control.Destroyed then
+            Item.Control.BackgroundColor3, Item.Control.HoverColor3 = Item.Value, Item.Value
+        end
     end
 end
 function Fluent:ToggleTransparency(Value)

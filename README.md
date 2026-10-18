@@ -8,6 +8,9 @@ Standalone Luau scripts for Astra Vortex.
 | Unnamed ESP | `scripts/UnnamedEsp.luau` |
 | vUNC | `scripts/EnvironmentTest.luau` |
 | Dex | `scripts/Explorer.luau` |
+| Air Arena script | `scripts/AirArena.luau` |
+| Fluent UI library | `scripts/Fluent.luau` |
+| Fluent example | `scripts/FluentExample.luau` |
 
 Load a script using its raw URL:
 
@@ -20,3 +23,5 @@ Infinite Yield includes `;explorer` / `;dex` and `;esp` commands to load Dex and
 Dex icons and UI compatibility code are embedded in the standalone scripts. No separate assets are required.
 
 Upstream license notices are included in `licenses/`.
+
+Fluent follows the upstream example API with separate `FluentSaveManager.luau` and `FluentInterfaceManager.luau` add-ons. See [Fluent usage and limitations](docs/Fluent.md). The library loads its Drawing fallback and bundled icon module when needed.
