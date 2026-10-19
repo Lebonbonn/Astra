@@ -47,6 +47,7 @@ local Summary = Tabs.Overview:AddParagraph({
     Title = "Current selection",
     Content = "The control values will appear here."
 })
+Summary:SetTitle("Current demo settings")
 
 -- Paragraphs expose SetTitle and SetDesc, so status text needs no drawing loop.
 -- Some controls invoke their callback during creation; check later options first.
@@ -82,6 +83,17 @@ Tabs.Overview:AddButton({
             SubContent = "Notifications dismiss themselves.",
             Duration = 4
         })
+    end
+})
+
+-- Identical notifications share one card and restart its timer. This button
+-- also demonstrates the default lifetime and the global notification limit.
+Tabs.Overview:AddButton({
+    Title = "Show the same notification twice",
+    Callback = function()
+        for _ = 1, 2 do
+            Fluent:Notify({Title = "Shared notice", Content = "Only one card should appear."})
+        end
     end
 })
 
@@ -186,7 +198,14 @@ Values:AddButton({
 })
 
 -- SetValues replaces a dropdown's choices without recreating the whole window.
--- For example: Optional:SetValues({"Primary", "Secondary", "New label"}).
+Values:AddButton({
+    Title = "Add a dropdown choice",
+    Description = "Updates the optional list while the window is open.",
+    Callback = function()
+        Optional:SetValues({"Primary", "Secondary", "Extra", "New label"})
+        Optional:SetValue("New label")
+    end
+})
 
 local Text = Tabs.Controls:AddSection("Text input")
 Text:AddInput("ExampleMessage", {
@@ -242,6 +261,24 @@ Keys:AddKeybind("ExampleHold", {
     Mode = "Hold",
     Callback = function(Down)
         print("Hold demonstration:", Down)
+    end
+})
+
+-- Always mode stays active regardless of whether its key is pressed.
+-- It is useful when a script wants one consistent GetState() check.
+local Always = Keys:AddKeybind("ExampleAlways", {
+    Title = "Always active demonstration",
+    Default = "None",
+    Mode = "Always"
+})
+Keys:AddButton({
+    Title = "Check shortcut states",
+    Callback = function()
+        Fluent:Notify({
+            Title = "Shortcut states",
+            Content = string.format("Toggle: %s   Always: %s",
+                tostring(Shortcut:GetState()), tostring(Always:GetState()))
+        })
     end
 })
 
@@ -306,7 +343,7 @@ end
 -- SaveManager handles named profiles, their option values, and autoload selection.
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
-InterfaceManager:SetFolder("FluentExample")
+InterfaceManager:SetFolder("FluentInterface")
 SaveManager:SetFolder("FluentExample/Profiles")
 
 -- Keep interface preferences separate from ordinary option profiles.
@@ -317,9 +354,11 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 -- Files are stored under Workspace/FluentExample, not beside the library script.
--- A profile is loaded automatically only after you choose "Set as autoload".
 -- Build every option before loading, so each saved ID has a matching control.
-local Autoloaded = SaveManager:LoadAutoloadConfig()
+-- Edits now autosave after a short pause. A selected autoload profile is the
+-- autosave target; otherwise the add-on uses its private "autosave" profile.
+-- The interface theme and menu bind use the shared FluentInterface folder.
+local Autoloaded = SaveManager.AutoSaveLoaded
 RefreshSummary()
 Window:SelectTab(1)
 
@@ -332,3 +371,7 @@ Fluent:Notify({
 
 -- Click the window's close button to confirm unloading, or call Fluent:Destroy().
 -- Unloading removes its controls and input connections. Rerunning starts fresh.
+-- OnUnload is useful for stopping a script's own loops or removing drawings.
+Fluent:OnUnload(function()
+    print("Fluent showcase closed")
+end)

@@ -169,10 +169,10 @@ Tabs.Visuals:AddSlider("EspMaxDistance", {Title = "Max distance", Min = 100, Max
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:SetFolder("AstraAirArena")
-InterfaceManager:SetFolder("AstraAirArena")
+InterfaceManager:SetFolder("FluentInterface")
+SaveManager:IgnoreThemeSettings()
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
-SaveManager:LoadAutoloadConfig()
 Window:SelectTab(1)
 
 local Environment = GunEnvironment()
@@ -192,17 +192,84 @@ if Gun and type(Gun.fire) == "function" and type(hookfunction) == "function" the
 end
 
 local function ClearEsp()
-    for Player, Label in State.Esp do
-        pcall(function() Label:Remove() end)
+    for Player, Entry in State.Esp do
+        pcall(function() Entry.Label:Remove() end)
         State.Esp[Player] = nil
     end
 end
 
+local function HideEsp(Entry)
+    if Entry.Visible then
+        Entry.Label.Visible = false
+        Entry.Visible = false
+    end
+end
+
+local function UpdateEsp()
+    if not Options.EspEnabled.Value then
+        if State.EspWasEnabled then
+            for _, Entry in State.Esp do HideEsp(Entry) end
+            State.EspWasEnabled = false
+        end
+        return
+    end
+    State.EspWasEnabled = true
+    local Camera = workspace.CurrentCamera
+    if not Camera then
+        for _, Entry in State.Esp do HideEsp(Entry) end
+        return
+    end
+    local View, Frame = Camera.ViewportSize, Camera.CFrame
+    local Scale = View.Y / (2 * math.tan(math.rad(Camera.FieldOfView or 70) / 2))
+    local MaxDistance, ShowDistance = Options.EspMaxDistance.Value, Options.EspDistance.Value
+    local Seen = {}
+    for _, Player in Players:GetPlayers() do
+        if Player ~= LocalPlayer then
+            Seen[Player] = true
+            local Entry = State.Esp[Player]
+            local Head = Alive(Player) and (Part(Player, "Head") or Part(Player, "HumanoidRootPart"))
+            local Relative = Head and (Head.Position - Frame.Position)
+            local Depth = Relative and Relative:Dot(Frame.LookVector)
+            if Depth and Depth > 0.1 and Depth < MaxDistance then
+                local X = View.X / 2 + Relative:Dot(Frame.RightVector) * Scale / Depth
+                local Y = View.Y / 2 - Relative:Dot(Frame.UpVector) * Scale / Depth
+                if X >= 0 and X <= View.X and Y >= 0 and Y <= View.Y then
+                    if not Entry then
+                        local Label = Drawing.new("Text")
+                        Label.Size = 14
+                        Label.Center = true
+                        Label.Color = Color3.fromRGB(105, 196, 255)
+                        Label.Outline = true
+                        Entry = {Label = Label, Visible = false}
+                        State.Esp[Player] = Entry
+                    end
+                    if X ~= Entry.X or Y ~= Entry.Y then
+                        Entry.Label.Position = Vector2.new(X, Y)
+                        Entry.X, Entry.Y = X, Y
+                    end
+                    local Text = Player.Name .. (ShowDistance and ("  [" .. math.floor(Depth) .. "]") or "")
+                    if Text ~= Entry.Text then Entry.Label.Text = Text Entry.Text = Text end
+                    if not Entry.Visible then Entry.Label.Visible = true Entry.Visible = true end
+                elseif Entry then HideEsp(Entry) end
+            elseif Entry then HideEsp(Entry) end
+        end
+    end
+    for Player, Entry in State.Esp do
+        if not Seen[Player] then
+            pcall(function() Entry.Label:Remove() end)
+            State.Esp[Player] = nil
+        end
+    end
+end
+
 function State:Unload()
+    if not self.Running then return end
     self.Running = false
     ClearEsp()
+    if getgenv().AstraAirArena == self then getgenv().AstraAirArena = nil end
     if Window then Window:Destroy() end
 end
+Fluent:OnUnload(function() State:Unload() end)
 
 task.spawn(function()
     while State.Running do
@@ -227,33 +294,17 @@ task.spawn(function()
                 local Camera = workspace.CurrentCamera
                 if Head and Camera then Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Head.Position) end
             end
-            if Options.EspEnabled.Value then
-                local Camera = workspace.CurrentCamera
-                for _, Player in Players:GetPlayers() do
-                    if Player ~= LocalPlayer and Alive(Player) then
-                        local Head = Part(Player, "Head") or Part(Player, "HumanoidRootPart")
-                        local Screen, Depth
-                        if Head then Screen, Depth = Project(Head.Position) end
-                        local Label = State.Esp[Player]
-                        if not Label then
-                            Label = Drawing.new("Text")
-                            Label.Size = 14
-                            Label.Center = true
-                            Label.Color = Color3.fromRGB(105, 196, 255)
-                            Label.Outline = true
-                            State.Esp[Player] = Label
-                        end
-                        Label.Visible = Screen ~= nil and Depth < Options.EspMaxDistance.Value
-                        if Label.Visible then
-                            Label.Position = Screen
-                            Label.Text = Player.Name .. (Options.EspDistance.Value and ("  [" .. math.floor(Depth) .. "]") or "")
-                        end
-                    end
-                end
-            else ClearEsp() end
         end)
         if not Ok then warn("Astra Air Arena script: " .. tostring(Error)) end
         task.wait(0.12)
+    end
+end)
+
+task.spawn(function()
+    while State.Running do
+        local Ok, Error = pcall(UpdateEsp)
+        if not Ok then warn("Astra Air Arena ESP: " .. tostring(Error)) end
+        task.wait(not Ok and 0.5 or Options.EspEnabled.Value and 0.05 or 0.25)
     end
 end)
 

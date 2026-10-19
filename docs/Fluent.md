@@ -36,14 +36,14 @@ end)
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:SetFolder("MyScript")
-InterfaceManager:SetFolder("MyScript")
+InterfaceManager:SetFolder("FluentInterface")
 SaveManager:IgnoreThemeSettings()
 InterfaceManager:BuildInterfaceSection(Settings)
 SaveManager:BuildConfigSection(Settings)
 Window:SelectTab(1)
 ```
 
-`Fluent/Example.luau` is an original commented showcase with Overview, Controls, Colors, and Settings tabs. The complete example is also installed as `Scripts/FluentExample.luau` for the internal script hub; that file contains the full example body and imports only the library and add-ons. It demonstrates control values, callbacks, notifications, dialogs, keybinds, color controls, profiles, and interface preferences. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
+`Fluent/Example.luau` is an original commented showcase with Overview, Controls, Colors, and Settings tabs. The complete example is also installed as `Scripts/FluentExample.luau` for the internal script hub; that file contains the full example body and imports only the library and add-ons. It demonstrates every implemented control type, sections, tab selection, updates to text and dropdown choices, callbacks, all three keybind modes, notifications, dialogs, themes, colors, profiles, autosave, and shared interface preferences. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
 
 ## Controls
 
@@ -56,13 +56,15 @@ Tabs and sections support `AddParagraph`, `AddButton`, `AddToggle`, `AddSlider`,
 - Color pickers expose `SetValueRGB(Color, Transparency)`. Their popup uses RGB sliders and an optional transparency slider.
 - Keybinds support `Always`, `Hold`, `Toggle`, `MB1`, `MB2`, rebinding, `GetState`, `OnClick`, and `ChangedCallback`. Textbox input does not trigger shortcuts.
 
-Windows have a draggable title bar, a minimize key/button, and a close confirmation dialog. `Window:Dialog` only invokes a callback after its button is clicked. `Fluent:Notify` displays a dismissible notification that expires after four seconds by default (`Fluent.NotificationDuration`). `Duration` overrides the lifetime, clamped to 0.5–30 seconds. At most three notifications are displayed by default (`Fluent.MaxNotifications`). Identical title/content messages reuse one notification and refresh its timer. The stack reflows when an entry expires or is dismissed. `Fluent:Destroy` disconnects input handlers and removes its controls, notifications, and drawing objects.
+Windows have a draggable title bar, a minimize key/button, and a close confirmation dialog. `Window:Dialog` only invokes a callback after its button is clicked. `Fluent:Notify` displays a dismissible notification that expires after four seconds by default (`Fluent.NotificationDuration`). `Duration` overrides the lifetime, clamped to 0.5–30 seconds. At most three notifications are displayed by default (`Fluent.MaxNotifications`). Identical title/content messages reuse one notification and refresh its timer. The stack reflows when an entry expires or is dismissed. `Fluent:OnUnload(callback)` registers cleanup for a script's own loops and drawings. `Fluent:Destroy` flushes pending autosaves, invokes cleanup callbacks, disconnects input handlers, and removes its controls and notifications.
 
 Themes: Dark, Darker, Light, Aqua, Amethyst, and Rose. Included icon names: home, crosshair, swords, users, person-standing, eye, settings, shield, flame, triangle, circle-user, minus, x, chevron-right, and chevron-down.
 
 ## Files and compatibility
 
-Configs live under `Workspace/<Folder>/settings/<Name>.json`; interface settings use `Workspace/<Folder>/options.json`. Config names accept letters, digits, spaces, underscores, and hyphens. Configs contain typed data and are parsed as JSON. `SetAutoloadConfig`, `LoadAutoloadConfig`, `RefreshConfigList`, `SetIgnoreIndexes`, and `IgnoreThemeSettings` are supported.
+Configs live under `Workspace/<ScriptFolder>/settings/<Name>.json`; interface settings use `Workspace/FluentInterface/options.json` when scripts use the shared folder shown above. Theme, transparency, and menu key therefore carry across Fluent scripts. Config names accept letters, digits, spaces, underscores, and hyphens. Configs contain typed data and are parsed as JSON.
+
+`BuildConfigSection` enables autosave by default. Once all options are created, it loads the selected autoload profile or the private `autosave` profile, then saves edits after 0.8 seconds of inactivity. Closing the window flushes pending changes. Each script should use its own SaveManager folder and the shared `FluentInterface` folder for InterfaceManager. Set `SaveManager.AutoSave = false` before building the config section to disable this behavior. `SetAutoloadConfig`, `LoadAutoloadConfig`, `RefreshConfigList`, `SetIgnoreIndexes`, `IgnoreThemeSettings`, and `FlushAutoSave` are supported.
 
 Fluent and its example load files from the repository’s `main` branch; their URLs contain no commit IDs. The library uses a native `Drawing.newcontext()` with `UiVersion >= 8` when available. Otherwise it fetches `Fluent/Drawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `Fluent/Icons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
 

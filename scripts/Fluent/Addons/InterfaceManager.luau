@@ -1,4 +1,4 @@
-local InterfaceManager = {Folder = "FluentSettings", Settings = {Theme = "Dark", Transparency = false, MenuKeybind = "LeftControl"}}
+local InterfaceManager = {Folder = "FluentInterface", Settings = {Theme = "Dark", Transparency = false, MenuKeybind = "LeftControl"}}
 function InterfaceManager:SetLibrary(Library) self.Library = Library end
 function InterfaceManager:SetFolder(Folder)
     self.Folder = tostring(Folder):gsub("\\", "/"):gsub("/+$", "")

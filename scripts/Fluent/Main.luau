@@ -150,6 +150,7 @@ end
 local function Emit(Item)
     Safe(Item.Callback, Item.Value)
     Safe(Item.Changed, Item.Value)
+    for _, Observer in Item.Observers or {} do Safe(Observer, Item.Value) end
 end
 local TabMethods = {}
 local function Reflow(Tab)
@@ -204,6 +205,11 @@ local function Option(Tab, Type, Id, Config, Reserved)
     local Item = Element(Tab, Config, Reserved)
     Item.Type, Item.Id, Item.Value, Item.Callback = Type, Id, Config.Default, Config.Callback
     function Item:OnChanged(Callback) self.Changed = Callback Safe(Callback, self.Value) return self end
+    function Item:Observe(Callback)
+        self.Observers = self.Observers or {}
+        self.Observers[#self.Observers + 1] = Callback
+        return self
+    end
     Fluent.Options[Id] = Item
     return Item
 end
@@ -407,6 +413,7 @@ function TabMethods:AddKeybind(Id, Config)
         self.Control.Text = self.Value
         Safe(self.ChangedCallback, Value)
         Safe(self.Changed, self.Value)
+        for _, Observer in self.Observers or {} do Safe(Observer, self.Value) end
     end
     function Item:GetState() return self.Mode == "Always" or self.State end
     function Item:OnClick(Callback) self.ClickCallback = Callback return self end
@@ -527,6 +534,10 @@ function Fluent:ToggleTransparency(Value)
     if Window then Window.Root.BackgroundTransparency = Value and 0.08 or 0 end
 end
 function Fluent:ToggleAcrylic(Value) self.UseAcrylic = false end
+function Fluent:OnUnload(Callback)
+    self.UnloadCallbacks = self.UnloadCallbacks or {}
+    self.UnloadCallbacks[#self.UnloadCallbacks + 1] = Callback
+end
 function Fluent:Notify(Config)
     if self.Unloaded then return end
     local Duration = tonumber(Config.Duration) or tonumber(self.NotificationDuration) or 4
@@ -589,7 +600,10 @@ function Fluent:Notify(Config)
 end
 function Fluent:Destroy()
     if self.Unloaded then return end
+    local Manager = rawget(self, "SaveManager")
+    if Manager and Manager.FlushAutoSave then Manager:FlushAutoSave() end
     self.Unloaded = true
+    for _, Callback in self.UnloadCallbacks or {} do Safe(Callback) end
     ClosePopup()
     for _, Connection in self.Connections do pcall(function() Connection:Disconnect() end) end
     table.clear(self.Connections)
