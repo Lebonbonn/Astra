@@ -25,3 +25,5 @@ Dex icons and UI compatibility code are embedded in the standalone scripts. No s
 Upstream license notices are included in `licenses/`.
 
 Fluent follows the upstream example API with separate `Fluent/Addons/SaveManager.luau` and `Fluent/Addons/InterfaceManager.luau` add-ons. See [Fluent usage and limitations](docs/Fluent.md). The library loads its Drawing fallback and bundled icon module when needed.
+
+`scripts/Fluent/Example.luau` is an original commented showcase covering controls, dialogs, notifications, keybinds, colors, and configurations. Astra also includes the complete example in its local `Scripts/FluentExample.luau` file.

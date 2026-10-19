@@ -43,7 +43,7 @@ SaveManager:BuildConfigSection(Settings)
 Window:SelectTab(1)
 ```
 
-`Fluent/Example.luau` is the upstream example with only its three library URLs changed. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
+`Fluent/Example.luau` is an original commented showcase with Overview, Controls, Colors, and Settings tabs. The complete example is also installed as `Scripts/FluentExample.luau` for the internal script hub; that file contains the full example body and imports only the library and add-ons. It demonstrates control values, callbacks, notifications, dialogs, keybinds, color controls, profiles, and interface preferences. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
 
 ## Controls
 
@@ -78,4 +78,4 @@ Idle frames reuse the previous hit-test result while pointer position, control l
 
 ## Validation
 
-`python Tools/TestFluent.py --luau <path-to-luau.exe>` runs a standalone fixture with mocked Drawing, input, and filesystem services. It checks controls, pointer clicks, callbacks, key modes, dialogs, config round trips, and the adapted upstream example without executing gameplay code. `Tools/BuildFluentIcons.py` regenerates the bundled icons using Pillow. Normal script generation does not overwrite the hosted Fluent sources.
+`python Tools/TestFluent.py --luau <path-to-luau.exe>` runs a standalone fixture with mocked Drawing, input, and filesystem services. It checks controls, pointer clicks, callbacks, key modes, dialogs, config round trips, and the complete showcase example without executing gameplay code. `Tools/BuildFluentIcons.py` regenerates the bundled icons using Pillow. Normal script generation does not overwrite the hosted Fluent sources.
