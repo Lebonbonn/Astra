@@ -2,10 +2,23 @@
 
 The Drawing implementation follows the public API and layout of [dawid's Fluent](https://github.com/dawid-scripts/Fluent). The upstream MIT notice is in `AstraGithub/licenses/FluentLicense.txt`.
 
+```text
+scripts/Fluent/
+  Main.luau
+  Drawing.luau
+  Icons.luau
+  Example.luau
+  Addons/
+    SaveManager.luau
+    InterfaceManager.luau
+```
+
+Runnable application scripts remain at `scripts/`; Fluent's support files are grouped here.
+
 ```lua
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent.luau"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentSaveManager.luau"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/FluentInterfaceManager.luau"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent/Main.luau"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent/Addons/SaveManager.luau"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent/Addons/InterfaceManager.luau"))()
 
 local Window = Fluent:CreateWindow({
     Title = "My script",
@@ -30,7 +43,7 @@ SaveManager:BuildConfigSection(Settings)
 Window:SelectTab(1)
 ```
 
-`FluentExample.luau` is the upstream example with only its three library URLs changed. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
+`Fluent/Example.luau` is the upstream example with only its three library URLs changed. `Fluent.SaveManager` and `Fluent.InterfaceManager` remain available as lazy conveniences for existing scripts.
 
 ## Controls
 
@@ -51,15 +64,17 @@ Themes: Dark, Darker, Light, Aqua, Amethyst, and Rose. Included icon names: home
 
 Configs live under `Workspace/<Folder>/settings/<Name>.json`; interface settings use `Workspace/<Folder>/options.json`. Config names accept letters, digits, spaces, underscores, and hyphens. Configs contain typed data and are parsed as JSON. `SetAutoloadConfig`, `LoadAutoloadConfig`, `RefreshConfigList`, `SetIgnoreIndexes`, and `IgnoreThemeSettings` are supported.
 
-Fluent pins its dependency assets to a matching repository revision. The example also pins its three library URLs so cached moving URLs cannot mix versions. The library uses a native `Drawing.newcontext()` with `UiVersion >= 7` when available. Otherwise it fetches `FluentDrawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `FluentIcons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
+Fluent and its example load files from the repository’s `main` branch; their URLs contain no commit IDs. The library uses a native `Drawing.newcontext()` with `UiVersion >= 8` when available. Otherwise it fetches `Fluent/Drawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `Fluent/Icons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
 
 The title bar, page heading, restrained row backgrounds, tab selection marker, icons, switches, and rails follow Fluent's layout. World acrylic blur, spring animations, interactive resizing/maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas are not implemented. `Acrylic` is accepted for compatibility; `SupportsAcrylic` and `UseAcrylic` are false.
 
-## Shared Drawing UI version 7
+## Shared Drawing UI version 8
 
 Controls add `MouseEnter`, `MouseLeave`, `TextXAlignment` (Left/Center/Right), `TextTransparency`, `BorderSizePixel`, `BorderColor3`, `BorderTransparency`, `CornerRadius`, `AccentColor3`, `KnobColor3`, and `ScrollBarThickness`. `ToggleStyle="Switch"` selects the switch appearance; `SliderStyle="Fluent"` selects the rail and thumb. A draggable control can set `DragTarget` to its root window. Scrolling frames show a draggable scrollbar when their canvas exceeds their height.
 
 Properties keep existing defaults for older scripts. Destroyed controls are reclaimed before enforcing the 512-control limit. Square/Panel rounding uses the renderer's existing `Rounding` drawing property.
+
+Idle frames reuse the previous hit-test result while pointer position, control layout, activity, and window focus are unchanged. Layout, visibility, parenting, z-order, and active-state changes invalidate that result. Unchanged native pointer positions avoid another Vector2 allocation. Fluent also uses a bounded 256-entry text-width cache to avoid repeating native measurements for unchanged labels and descriptions.
 
 ## Validation
 

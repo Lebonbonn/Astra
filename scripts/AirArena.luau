@@ -1,4 +1,4 @@
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent.luau"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent/Main.luau"))()
 local SaveManager = Fluent.SaveManager
 local InterfaceManager = Fluent.InterfaceManager
 local Players = game:GetService("Players")

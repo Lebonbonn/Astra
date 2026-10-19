@@ -1,5 +1,5 @@
 local function CreateLibrary(Drawing, Services)
-    local Library = {UiVersion = 7}
+    local Library = {UiVersion = 8}
     local HoveredItem
     local HoverChain = {}
     local Items, Connections = {}, {}
@@ -11,6 +11,7 @@ local function CreateLibrary(Drawing, Services)
     local PaintDirty = true
     local LastBlink = -1
     local LayoutVersion = 0
+    local LastHitX, LastHitY, LastHitVersion, LastHitActive
     local Boxes = setmetatable({}, {__mode = "k"})
     local Kinds = {Frame = true, ScrollingFrame = true, TextLabel = true, TextBox = true, TextButton = true, Button = true, Checkbox = true, Slider = true, ImageLabel = true}
     local Task
@@ -418,7 +419,7 @@ local function CreateLibrary(Drawing, Services)
         if not Active then table.clear(Keys) Pressed, Drag, ScrollDrag = nil, nil, nil end
         if Context then
             local Position = Context:getpointer()
-            if Position then Pointer = Vector2.new(Position.X, Position.Y) end
+            if Position and (Position.X ~= Pointer.X or Position.Y ~= Pointer.Y) then Pointer = Vector2.new(Position.X, Position.Y) end
             for _, Event in Context:getevents() do
                 if Event.Type == "KeyDown" then local KeyName = Virtual[Event.Code] or "Unknown" Keys[KeyName] = true Key(KeyName, Event.Repeat)
                 elseif Event.Type == "KeyUp" then Keys[Virtual[Event.Code] or "Unknown"] = nil
@@ -453,10 +454,16 @@ local function CreateLibrary(Drawing, Services)
         end
         local Blink = Focus and math.floor((Clock and Clock() or Elapsed) * 2) or -1
         if Blink ~= LastBlink then LastBlink = Blink PaintDirty = true end
-        local Hovered
-        for Index = #Items, 1, -1 do
-            local Item = Items[Index]
-            if Active and not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
+        local Hovered = HoveredItem
+        if Pointer.X ~= LastHitX or Pointer.Y ~= LastHitY or LayoutVersion ~= LastHitVersion or Active ~= LastHitActive then
+            Hovered = nil
+            if Active then
+                for Index = #Items, 1, -1 do
+                    local Item = Items[Index]
+                    if not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
+                end
+            end
+            LastHitX, LastHitY, LastHitVersion, LastHitActive = Pointer.X, Pointer.Y, LayoutVersion, Active
         end
         if Hovered ~= HoveredItem then
             HoveredItem = Hovered
@@ -556,7 +563,7 @@ local function CreateLibrary(Drawing, Services)
             if Key == "Value" and Data.Kind == "Slider" then assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid slider value") end
             if Data[Key] == Value then return end
             if (Key == "Position" or Key == "Size") and Data[Key] and Data[Key].X == Value.X and Data[Key].Y == Value.Y then return end
-            if Key == "Position" or Key == "Size" or Key == "Visible" or Key == "Parent" or Key == "ScrollOffset" or Key == "Destroyed" then LayoutVersion += 1 end
+            if Key == "Position" or Key == "Size" or Key == "Visible" or Key == "Parent" or Key == "ScrollOffset" or Key == "Destroyed" or Key == "Active" or Key == "ZIndex" or Key == "ClipsDescendants" then LayoutVersion += 1 end
             if Key ~= "AbsolutePosition" and Key ~= "AbsoluteSize" and Key ~= "TextOffset" and Key ~= "LastPointerX" then PaintDirty = true end
             Data[Key] = Value
             if Key == "Text" then Data.Cursor = math.min(Data.Cursor, #Value) Data.Anchor = math.min(Data.Anchor, #Value) Data.TextChanged:Fire(Value) end
@@ -566,6 +573,7 @@ local function CreateLibrary(Drawing, Services)
         end})
         if Properties then for Key, Value in Properties do Object[Key] = Value end end
         Items[#Items + 1] = Object
+        LayoutVersion += 1
         Dirty = true
         PaintDirty = true
         Start()

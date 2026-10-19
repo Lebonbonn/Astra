@@ -9,8 +9,8 @@ Standalone Luau scripts for Astra Vortex.
 | vUNC | `scripts/EnvironmentTest.luau` |
 | Dex | `scripts/Explorer.luau` |
 | Air Arena script | `scripts/AirArena.luau` |
-| Fluent UI library | `scripts/Fluent.luau` |
-| Fluent example | `scripts/FluentExample.luau` |
+| Fluent UI library | `scripts/Fluent/Main.luau` |
+| Fluent example | `scripts/Fluent/Example.luau` |
 
 Load a script using its raw URL:
 
@@ -24,4 +24,4 @@ Dex icons and UI compatibility code are embedded in the standalone scripts. No s
 
 Upstream license notices are included in `licenses/`.
 
-Fluent follows the upstream example API with separate `FluentSaveManager.luau` and `FluentInterfaceManager.luau` add-ons. See [Fluent usage and limitations](docs/Fluent.md). The library loads its Drawing fallback and bundled icon module when needed.
+Fluent follows the upstream example API with separate `Fluent/Addons/SaveManager.luau` and `Fluent/Addons/InterfaceManager.luau` add-ons. See [Fluent usage and limitations](docs/Fluent.md). The library loads its Drawing fallback and bundled icon module when needed.

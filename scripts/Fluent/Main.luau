@@ -1,5 +1,5 @@
 local RGB, V2 = Color3.fromRGB, Vector2.new
-local AssetBase = "https://raw.githubusercontent.com/Lebonbonn/Astra/a48f0e2/scripts/"
+local AssetBase = "https://raw.githubusercontent.com/Lebonbonn/Astra/main/scripts/Fluent/"
 local Environment = type(getgenv) == "function" and getgenv() or _G
 if not UDim2 then
     Environment.UDim2 = {
@@ -12,20 +12,20 @@ if Previous and Previous.AstraVersion and type(Previous.Destroy) == "function" t
 local Ui
 if Drawing and type(Drawing.newcontext) == "function" then
     local Ok, Result = pcall(Drawing.newcontext)
-    if Ok and Result and (Result.UiVersion or 0) >= 7 then Ui = Result end
+    if Ok and Result and (Result.UiVersion or 0) >= 8 then Ui = Result end
 end
 if not Ui then
-    Ui = assert(loadstring(game:HttpGet(AssetBase .. "FluentDrawing.luau")))()(Drawing)
-    assert((Ui.UiVersion or 0) >= 7, "Fluent requires Drawing UI version 7")
+    Ui = assert(loadstring(game:HttpGet(AssetBase .. "Drawing.luau")))()(Drawing)
+    assert((Ui.UiVersion or 0) >= 8, "Fluent requires Drawing UI version 8")
 end
 local Font = Drawing.Fonts and (Drawing.Fonts.SourceSans or Drawing.Fonts.Plex or Drawing.Fonts.UI) or 0
 local Icons = {}
 local IconOk, IconData = pcall(function()
-    return assert(loadstring(game:HttpGet(AssetBase .. "FluentIcons.luau")))()
+    return assert(loadstring(game:HttpGet(AssetBase .. "Icons.luau")))()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
-    Version = "1.1.2", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
+    Version = "1.1.3", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
     Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 3, NotificationDuration = 4, Ui = Ui,
     SupportsAcrylic = false, UseAcrylic = false
@@ -82,9 +82,20 @@ local function Label(Parent, Text, X, Y, W, H, Size, Color)
 end
 local Measure = Drawing.new("Text")
 Measure.Visible, Measure.Font = false, Font
+local WidthCache, WidthKeys, WidthSlot = {}, {}, 1
 local function TextWidth(Text, Size)
+    local Key = tostring(Size) .. "\0" .. Text
+    local Cached = WidthCache[Key]
+    if Cached ~= nil then return Cached end
     Measure.Text, Measure.Size = Text, Size
-    return Measure.TextBounds.X
+    local Width = Measure.TextBounds.X
+    if #Text <= 512 then
+        if WidthKeys[WidthSlot] then WidthCache[WidthKeys[WidthSlot]] = nil end
+        WidthKeys[WidthSlot] = Key
+        WidthSlot = WidthSlot % 256 + 1
+        WidthCache[Key] = Width
+    end
+    return Width
 end
 local function Wrap(Text, Width, Size)
     local Lines = {}
@@ -628,7 +639,7 @@ if Input and Input.InputBegan then
 end
 setmetatable(Fluent, {__index = function(Self, Key)
     if Key ~= "SaveManager" and Key ~= "InterfaceManager" then return nil end
-    local Manager = assert(loadstring(game:HttpGet(AssetBase .. "Fluent" .. Key .. ".luau")))()
+    local Manager = assert(loadstring(game:HttpGet(AssetBase .. "Addons/" .. Key .. ".luau")))()
     Manager:SetLibrary(Self)
     rawset(Self, Key, Manager)
     return Manager
