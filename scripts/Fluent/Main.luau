@@ -28,7 +28,7 @@ local Fluent = {
     Version = "1.1.3", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
     Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 3, NotificationDuration = 4, Ui = Ui,
-    SupportsAcrylic = false, UseAcrylic = false
+    SupportsAcrylic = false, SupportsAcrylicPaint = true, UseAcrylic = true
 }
 Environment.AstraFluent = Fluent
 local Window, Popup
@@ -154,6 +154,7 @@ local function Emit(Item)
 end
 local TabMethods = {}
 local function Reflow(Tab)
+    if Tab.DeferReflow then return end
     local Y = 0
     for _, Row in Tab.Rows do
         if not Row.Frame.Destroyed then
@@ -220,12 +221,16 @@ function TabMethods:AddParagraph(Config)
 end
 function TabMethods:AddButton(Config)
     local Item = Element(self, Config, 30)
-    Icon(Item.Frame, "chevron-right", self.Width - 37, math.floor((Item.Height - 18) / 2), 18)
+    Item.Arrow = Icon(Item.Frame, "chevron-right", self.Width - 37, math.floor((Item.Height - 18) / 2), 18)
+    function Item:PositionControl()
+        if self.Arrow then self.Arrow.Position = V2(self.Tab.Width - 37, math.floor((self.Height - 18) / 2)) end
+    end
     Connect(Item.Frame.MouseButton1Click, function() Safe(Config.Callback) end)
     return Item
 end
 function TabMethods:AddSection(Title)
     local Item = Element(self, {Title = Title}, 0, true)
+    Item.Section = true
     Item.Height, Item.TitleLabel.TextSize = 30, 18
     Item.TitleLabel.Position = V2(0, 7)
     Reflow(self)
@@ -424,6 +429,42 @@ function TabMethods:AddKeybind(Id, Config)
     return Item
 end
 local WindowMethods = {}
+function WindowMethods:Resize(Width, Height)
+    if self.Resizing then return end
+    Width, Height = tonumber(Width), tonumber(Height)
+    if not Width or not Height or Width ~= Width or Height ~= Height then return end
+    local View = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or V2(1280, 720)
+    Width = math.clamp(math.floor(Width), math.min(460, View.X), math.max(460, View.X))
+    Height = math.clamp(math.floor(Height), math.min(320, View.Y), math.max(320, View.Y))
+    self.Resizing = true
+    ClosePopup()
+    self.Width, self.Height = Width, Height
+    self.Root.Size, self.Header.Size = V2(Width, Height), V2(Width, 42)
+    self.Sidebar.Size = V2(self.SidebarWidth, Height - 62)
+    self.PageTitle.Size = V2(Width - self.SidebarWidth - 40, 35)
+    self.Title.Size = V2(Width - 140, 18)
+    if self.SubTitle then self.SubTitle.Size = V2(math.max(1, Width - self.SubTitle.Position.X - 95), 18) end
+    self.TitleLine.Size = V2(Width - 2, 1)
+    self.MinimizeButton.Position, self.CloseButton.Position = V2(Width - 78, 5), V2(Width - 41, 5)
+    if self.Grain then self.Grain.Size = self.Root.Size end
+    if self.Sheen then self.Sheen.Size = self.Root.Size end
+    for _, Shadow in self.Shadows or {} do Shadow.Size = V2(Width - Shadow.Position.X * 2, Height - Shadow.Position.Y * 2) end
+    if self.ResizeHandle then self.ResizeHandle.Position = V2(Width - 20, Height - 20) end
+    for _, Tab in self.Tabs do
+        Tab.Width = Width - self.SidebarWidth - 30
+        Tab.Page.Size = V2(Tab.Width, Height - 112)
+        Tab.DeferReflow = true
+        for _, Row in Tab.Rows do
+            if not Row.Frame.Destroyed then
+                Row:UpdateLayout()
+                if Row.Section then Row.Height = 30 Row.TitleLabel.Position = V2(0, 7) end
+            end
+        end
+        Tab.DeferReflow = false
+        Reflow(Tab)
+    end
+    self.Resizing = false
+end
 function WindowMethods:AddTab(Config)
     local Index = #self.Tabs + 1
     local Width = self.Width - self.SidebarWidth - 30
@@ -493,17 +534,32 @@ function Fluent:CreateWindow(Config)
         {ZIndex = 100, BackgroundTransparency = 0, CornerRadius = 8, BorderSizePixel = 1}, {BackgroundColor3 = "Background", BorderColor3 = "Border"})
     local Header = Create("Frame", Root, 0, 0, Width, 42, {Draggable = true, DragTarget = Root})
     local Title = Label(Header, Config.Title or "Fluent", 16, 12, Width - 140, 18, 13)
+    local SubTitle
     if Config.SubTitle and Config.SubTitle ~= "" then
         local X = 22 + TextWidth(Config.Title or "Fluent", 13)
-        Label(Header, Config.SubTitle, X, 12, math.max(1, Width - X - 95), 18, 12, "Muted")
+        SubTitle = Label(Header, Config.SubTitle, X, 12, math.max(1, Width - X - 95), 18, 12, "Muted")
     end
-    Create("Frame", Root, 1, 42, Width - 2, 1, {BackgroundTransparency = 0, Active = false}, {BackgroundColor3 = "Border"})
+    local TitleLine = Create("Frame", Root, 1, 42, Width - 2, 1, {BackgroundTransparency = 0, Active = false}, {BackgroundColor3 = "Border"})
     local SidebarWidth = math.clamp(Config.TabWidth or 160, 110, 230)
     local Sidebar = Create("ScrollingFrame", Root, 0, 50, SidebarWidth, Height - 62, {ClipsDescendants = true, ScrollBarThickness = 0})
     local PageTitle = Label(Root, "", SidebarWidth + 18, 58, Width - SidebarWidth - 40, 35, 27)
     Window = setmetatable({Root = Root, Header = Header, Sidebar = Sidebar, PageTitle = PageTitle, Width = Width,
         Height = Height, SidebarWidth = SidebarWidth, Tabs = {}, MinimizeKey = KeyName(Config.MinimizeKey or "LeftControl")}, {__index = WindowMethods})
     self.Window = Window
+    Window.Title, Window.SubTitle, Window.TitleLine = Title, SubTitle, TitleLine
+    Window.Shadows = {}
+    for Index = 1, 4 do
+        local Inset = Index * 4
+        Window.Shadows[Index] = Create("Frame", Root, -Inset, -Inset, Width + Inset * 2, Height + Inset * 2,
+            {ZIndex = -10 - Index, Active = false, BackgroundColor3 = RGB(0, 0, 0), BackgroundTransparency = 0.95, CornerRadius = 8 + Inset})
+    end
+    Window.Sheen = Create("Frame", Root, 0, 0, Width, Height,
+        {ZIndex = 0, Active = false, BackgroundColor3 = RGB(255, 255, 255), BackgroundTransparency = 0.97, CornerRadius = 8})
+    local Ok, Grain = pcall(function() return assert(loadstring(game:HttpGet(AssetBase .. "Acrylic.luau")))() end)
+    if Ok and type(Grain) == "string" then
+        Window.Grain = Create("ImageLabel", Root, 0, 0, Width, Height,
+            {ZIndex = 0, Active = false, Image = Grain, BackgroundTransparency = 0.90, CornerRadius = 8})
+    end
     local Minimize = Click(Header, "", Width - 78, 5, 33, 32, function() Window:Minimize() end)
     if not Icons.minus then Minimize.Text = "-" end
     Minimize.BackgroundTransparency = 1
@@ -516,6 +572,16 @@ function Fluent:CreateWindow(Config)
     Close.BackgroundTransparency = 1
     if not Icons.x then Close.Text = "x" end
     Icon(Close, "x", 8, 8, 16)
+    Window.MinimizeButton, Window.CloseButton = Minimize, Close
+    if Config.Resizable ~= false then
+        local Handle = Create("TextButton", Root, Width - 20, Height - 20, 20, 20,
+            {ZIndex = 100, Draggable = true, Text = "◢", TextSize = 12, TextXAlignment = "Center", TextTransparency = 0.5})
+        Window.ResizeHandle = Handle
+        Connect(Handle.Changed, function(Property)
+            if Property == "Position" and not Window.Resizing then Window:Resize(Handle.Position.X + 20, Handle.Position.Y + 20) end
+        end)
+    end
+    self:ToggleAcrylic(Config.Acrylic ~= false)
     return Window
 end
 function Fluent:SetTheme(Name)
@@ -531,9 +597,16 @@ function Fluent:SetTheme(Name)
     end
 end
 function Fluent:ToggleTransparency(Value)
-    if Window then Window.Root.BackgroundTransparency = Value and 0.08 or 0 end
+    self.Transparency = not not Value
+    self:ToggleAcrylic(self.UseAcrylic)
 end
-function Fluent:ToggleAcrylic(Value) self.UseAcrylic = false end
+function Fluent:ToggleAcrylic(Value)
+    self.UseAcrylic = not not Value
+    if not Window then return end
+    Window.Root.BackgroundTransparency = self.UseAcrylic and (self.Transparency and 0.5 or 0.28) or (self.Transparency and 0.08 or 0)
+    if Window.Grain then Window.Grain.Visible = self.UseAcrylic end
+    if Window.Sheen then Window.Sheen.Visible = self.UseAcrylic end
+end
 function Fluent:OnUnload(Callback)
     self.UnloadCallbacks = self.UnloadCallbacks or {}
     self.UnloadCallbacks[#self.UnloadCallbacks + 1] = Callback

@@ -68,7 +68,9 @@ Configs live under `Workspace/<ScriptFolder>/settings/<Name>.json`; interface se
 
 Fluent and its example load files from the repository’s `main` branch; their URLs contain no commit IDs. The library uses a native `Drawing.newcontext()` with `UiVersion >= 8` when available. Otherwise it fetches `Fluent/Drawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `Fluent/Icons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
 
-The title bar, page heading, restrained row backgrounds, tab selection marker, icons, switches, and rails follow Fluent's layout. World acrylic blur, spring animations, interactive resizing/maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas are not implemented. `Acrylic` is accepted for compatibility; `SupportsAcrylic` and `UseAcrylic` are false.
+The title bar, page heading, row backgrounds, tab selection marker, icons, switches, and rails follow Fluent's layout. Drag the bottom-right grip to resize, or call `Window:Resize(width, height)`. Controls and tab pages reflow with the window.
+
+`Acrylic` enables layered tint, grain, sheen, and borders. `Window:ToggleAcrylic(enabled)` changes the material; InterfaceManager saves the preference. `SupportsAcrylicPaint` is true. This material does not blur the game behind it, so `SupportsAcrylic` remains false. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
 
 ## Shared Drawing UI version 8
 

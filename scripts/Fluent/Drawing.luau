@@ -344,7 +344,7 @@ local function CreateLibrary(Drawing, Services)
                 Size = Vector2.new(Item.ScrollBarThickness, Height), Filled = true, Color = Item.TextColor3, Transparency = 0.35, Rounding = 2, ZIndex = Layer + 10})
         end
         if Item.Kind == "ImageLabel" then
-            Shape(Item, "Image", "Image", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Data = Item.Image, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer})
+            Shape(Item, "Image", "Image", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Data = Item.Image, Transparency = 1 - Item.BackgroundTransparency, Rounding = Item.CornerRadius, ZIndex = Layer})
         elseif Item.Kind ~= "Frame" and Item.Kind ~= "ScrollingFrame" then
             local Text = Item.Text
             local Offset = 0

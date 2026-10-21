@@ -1,4 +1,4 @@
-local InterfaceManager = {Folder = "FluentInterface", Settings = {Theme = "Dark", Transparency = false, MenuKeybind = "LeftControl"}}
+local InterfaceManager = {Folder = "FluentInterface", Settings = {Theme = "Dark", Acrylic = true, Transparency = false, MenuKeybind = "LeftControl"}}
 function InterfaceManager:SetLibrary(Library) self.Library = Library end
 function InterfaceManager:SetFolder(Folder)
     self.Folder = tostring(Folder):gsub("\\", "/"):gsub("/+$", "")
@@ -23,6 +23,7 @@ function InterfaceManager:LoadSettings()
     if Ok and type(Settings) == "table" then
         if type(Settings.Theme) == "string" then self.Settings.Theme = Settings.Theme end
         if type(Settings.Transparency) == "boolean" then self.Settings.Transparency = Settings.Transparency end
+        if type(Settings.Acrylic) == "boolean" then self.Settings.Acrylic = Settings.Acrylic end
         if type(Settings.MenuKeybind) == "string" then self.Settings.MenuKeybind = Settings.MenuKeybind end
     end
     return Ok
@@ -40,6 +41,11 @@ function InterfaceManager:BuildInterfaceSection(Tab)
     Section:AddToggle("TransparentToggle", {Title = "Transparency", Description = "Makes the window slightly transparent.", Default = Settings.Transparency, Callback = function(Value)
         Library:ToggleTransparency(Value)
         Settings.Transparency = Value
+        self:SaveSettings()
+    end})
+    Section:AddToggle("AcrylicToggle", {Title = "Acrylic material", Description = "Translucent tint and grain. Does not blur the game.", Default = Settings.Acrylic, Callback = function(Value)
+        Library:ToggleAcrylic(Value)
+        Settings.Acrylic = Value
         self:SaveSettings()
     end})
     local Keybind = Section:AddKeybind("MenuKeybind", {Title = "Minimize bind", Default = Settings.MenuKeybind})

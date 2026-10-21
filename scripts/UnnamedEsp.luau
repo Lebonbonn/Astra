@@ -124,11 +124,11 @@ end
 
 local CreateUiLibrary = (function()
 local function CreateLibrary(Drawing, Services)
-    local Library = {UiVersion = 5}
+    local Library = {UiVersion = 8}
     local HoveredItem
     local HoverChain = {}
     local Items, Connections = {}, {}
-    local Focus, Pressed, Secondary, Drag, Context, Input, Running
+    local Focus, Pressed, Secondary, Drag, ScrollDrag, Context, Input, Running
     local Pointer = Vector2.new(0, 0)
     local Keys = {}
     local NextId = 0
@@ -136,6 +136,7 @@ local function CreateLibrary(Drawing, Services)
     local PaintDirty = true
     local LastBlink = -1
     local LayoutVersion = 0
+    local LastHitX, LastHitY, LastHitVersion, LastHitActive
     local Boxes = setmetatable({}, {__mode = "k"})
     local Kinds = {Frame = true, ScrollingFrame = true, TextLabel = true, TextBox = true, TextButton = true, Button = true, Checkbox = true, Slider = true, ImageLabel = true}
     local Task
@@ -169,6 +170,33 @@ local function CreateLibrary(Drawing, Services)
         Cursor = math.min(#Text, Cursor + 1)
         while Cursor < #Text and string.byte(Text, Cursor + 1) >= 128 and string.byte(Text, Cursor + 1) < 192 do Cursor += 1 end
         return Cursor
+    end
+    local function CharacterKind(Text, Cursor)
+        local Character = Text:sub(Cursor + 1, After(Text, Cursor))
+        if Character:match("%s") then return "Space" end
+        if Character:match("[%w_]") or (Character:byte() or 0) >= 128 then return "Word" end
+        return "Punctuation"
+    end
+    local function WordBefore(Text, Cursor)
+        while Cursor > 0 and CharacterKind(Text, Before(Text, Cursor)) == "Space" do Cursor = Before(Text, Cursor) end
+        if Cursor == 0 then return 0 end
+        local Kind = CharacterKind(Text, Before(Text, Cursor))
+        while Cursor > 0 and CharacterKind(Text, Before(Text, Cursor)) == Kind do Cursor = Before(Text, Cursor) end
+        return Cursor
+    end
+    local function WordAfter(Text, Cursor)
+        while Cursor < #Text and CharacterKind(Text, Cursor) == "Space" do Cursor = After(Text, Cursor) end
+        if Cursor == #Text then return Cursor end
+        local Kind = CharacterKind(Text, Cursor)
+        while Cursor < #Text and CharacterKind(Text, Cursor) == Kind do Cursor = After(Text, Cursor) end
+        return Cursor
+    end
+    local function LineStart(Text, Cursor)
+        while Cursor > 0 and Text:sub(Cursor, Cursor) ~= "\n" do Cursor = Before(Text, Cursor) end
+        return Cursor
+    end
+    local function LineEnd(Text, Cursor)
+        return (Text:find("\n", Cursor + 1, true) or (#Text + 1)) - 1
     end
     local function Inside(Point, Bounds)
         return Bounds and Point.X >= Bounds.X and Point.Y >= Bounds.Y and Point.X <= Bounds.X + Bounds.Width and Point.Y <= Bounds.Y + Bounds.Height
@@ -210,7 +238,11 @@ local function CreateLibrary(Drawing, Services)
             local Equal = Previous == Value
             if Previous and (Property == "Position" or Property == "Size" and Kind ~= "Text") then Equal = Previous.X == Value.X and Previous.Y == Value.Y
             elseif Previous and Property == "Color" then Equal = Previous.R == Value.R and Previous.G == Value.G and Previous.B == Value.B end
-            if not Equal then Entry.Object[Property] = Value Entry.Values[Property] = Value end
+            if not Equal then
+                if Property == "Rounding" then pcall(function() Entry.Object[Property] = Value end)
+                else Entry.Object[Property] = Value end
+                Entry.Values[Property] = Value
+            end
         end
         local Parent, Clip = Item.Parent, nil
         while Parent do
@@ -304,7 +336,7 @@ local function CreateLibrary(Drawing, Services)
         if Pressed == self then Pressed = nil end
         if Drag and Drag.Item == self then Drag = nil end
         for _, Entry in self.Shapes do pcall(function() Entry.Object:Remove() end) end
-        for _, Name in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do
+        for _, Name in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseEnter", "MouseLeave", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do
             for Connection in self[Name].Listeners do Connection:Disconnect() end
         end
         for _, Event in self.ChangedEvents do for Connection in Event.Listeners do Connection:Disconnect() end end
@@ -315,33 +347,49 @@ local function CreateLibrary(Drawing, Services)
     local function Key(KeyName, Repeated)
         local Item = Focus
         if not Item or not Item.TextEditable then return end
-        local Control = Keys.LeftControl or Keys.RightControl or Keys.Control
-        local Shift = Keys.LeftShift or Keys.RightShift or Keys.Shift
-        Item.InputBegan:Fire(KeyName, Control == true, Shift == true)
-        if Control and (KeyName == "Z" or KeyName == "Y") then
-            local Source = KeyName == "Z" and Item.UndoItems or Item.RedoItems
-            local Destination = KeyName == "Z" and Item.RedoItems or Item.UndoItems
+        local Control = Keys.Control
+        if Control == nil then Control = Keys.LeftControl or Keys.RightControl end
+        local Shift = Keys.Shift
+        if Shift == nil then Shift = Keys.LeftShift or Keys.RightShift end
+        local Alt = Keys.Alt
+        if Alt == nil then Alt = Keys.LeftAlt or Keys.RightAlt end
+        local Command = Keys.Command
+        local Primary = Command or Control
+        local Word = Alt or Control
+        Item.InputBegan:Fire(KeyName, Primary == true, Shift == true)
+        if Primary and (KeyName == "Z" or KeyName == "Y") then
+            local Redo = KeyName == "Y" or Shift
+            local Source = Redo and Item.RedoItems or Item.UndoItems
+            local Destination = Redo and Item.UndoItems or Item.RedoItems
             local State = table.remove(Source)
             if State then Destination[#Destination + 1] = {Text = Item.Text, Cursor = Item.Cursor, Anchor = Item.Anchor} Item.Text = State.Text Item.Cursor = State.Cursor Item.Anchor = State.Anchor end
-        elseif Control and KeyName == "A" then Item:SelectAll()
-        elseif Control and (KeyName == "C" or KeyName == "X" or KeyName == "Insert") or Shift and KeyName == "Delete" then
+        elseif Primary and KeyName == "A" then Item:SelectAll()
+        elseif Primary and (KeyName == "C" or KeyName == "X" or KeyName == "Insert") or Shift and KeyName == "Delete" then
             local Text = Item:GetSelection()
             if #Text > 0 and type(setclipboard) == "function" then setclipboard(Text) end
             if (KeyName == "X" or KeyName == "Delete") and #Text > 0 then Replace(Item, "") end
         elseif KeyName == "Backspace" or KeyName == "Delete" then
             if Item.Cursor == Item.Anchor then
-                if KeyName == "Backspace" then Item.Anchor = Before(Item.Text, Item.Cursor) else Item.Anchor = After(Item.Text, Item.Cursor) end
+                if KeyName == "Backspace" then
+                    Item.Anchor = Command and LineStart(Item.Text, Item.Cursor) or Word and WordBefore(Item.Text, Item.Cursor) or Before(Item.Text, Item.Cursor)
+                else
+                    Item.Anchor = Command and LineEnd(Item.Text, Item.Cursor) or Word and WordAfter(Item.Text, Item.Cursor) or After(Item.Text, Item.Cursor)
+                end
             end
             Replace(Item, "")
         elseif KeyName == "Left" or KeyName == "Right" then
-            Item.Cursor = KeyName == "Left" and Before(Item.Text, Item.Cursor) or After(Item.Text, Item.Cursor)
+            local Left = KeyName == "Left"
+            if Command then Item.Cursor = Left and LineStart(Item.Text, Item.Cursor) or LineEnd(Item.Text, Item.Cursor)
+            elseif Word then Item.Cursor = Left and WordBefore(Item.Text, Item.Cursor) or WordAfter(Item.Text, Item.Cursor)
+            elseif not Shift and Item.Cursor ~= Item.Anchor then Item.Cursor = Left and math.min(Item.Cursor, Item.Anchor) or math.max(Item.Cursor, Item.Anchor)
+            else Item.Cursor = Left and Before(Item.Text, Item.Cursor) or After(Item.Text, Item.Cursor) end
             if not Shift then Item.Anchor = Item.Cursor end
-        elseif KeyName == "Home" or KeyName == "End" then
-            Item.Cursor = KeyName == "Home" and 0 or #Item.Text
+        elseif KeyName == "Home" or KeyName == "End" or Command and (KeyName == "Up" or KeyName == "Down") then
+            Item.Cursor = (KeyName == "Home" or KeyName == "Up") and 0 or #Item.Text
             if not Shift then Item.Anchor = Item.Cursor end
         elseif KeyName == "Escape" then Item:ReleaseFocus(false)
         elseif KeyName == "Return" or KeyName == "Enter" then
-            if Item.Multiline and not Control then Replace(Item, "\n") else Item:ReleaseFocus(true) end
+            if Item.Multiline and not Primary then Replace(Item, "\n") else Item:ReleaseFocus(true) end
         end
     end
     local function Caret(Item)
@@ -380,12 +428,20 @@ local function CreateLibrary(Drawing, Services)
         Pressed = Hit
         if not Hit then return end
         Hit.MouseButton1Down:Fire()
-        if Hit.Kind == "TextBox" then
+        if Hit.Kind == "ScrollingFrame" and Hit.CanvasSize > Hit.Size.Y and Pointer.X >= Bounds(Hit).X + Hit.Size.X - 10 then
+            ScrollDrag = Hit
+        elseif Hit.Kind == "Slider" then
+            local Box = Bounds(Hit)
+            local Inset = Hit.SliderStyle == "Fluent" and 7 or 0
+            Hit.Value = Hit.Min + math.clamp((Pointer.X - Box.X - Inset) / math.max(Box.Width - 2 * Inset, 1), 0, 1) * (Hit.Max - Hit.Min)
+        elseif Hit.Kind == "TextBox" then
             Hit:CaptureFocus()
             Hit.Cursor = Caret(Hit)
             if not Keys.LeftShift and not Keys.RightShift then Hit.Anchor = Hit.Cursor end
             Hit.LastPointerX = Pointer.X
-        elseif Hit.Draggable then Drag = {Item = Hit, Offset = Pointer - Hit.Position}
+        elseif Hit.Draggable then
+            local Target = Hit.DragTarget or Hit
+            if Library.isui(Target) then Drag = {Item = Target, Offset = Pointer - Target.Position} end
         end
     end
     local function PointerUp(Button)
@@ -399,7 +455,7 @@ local function CreateLibrary(Drawing, Services)
             return
         end
         local Item = Pressed
-        Pressed, Drag = nil, nil
+        Pressed, Drag, ScrollDrag = nil, nil, nil
         if Item and not Item.Destroyed then
             Item.MouseButton1Up:Fire()
             if Inside(Pointer, Bounds(Item)) and CanHit(Item) then
@@ -408,7 +464,7 @@ local function CreateLibrary(Drawing, Services)
             end
         end
     end
-    local Virtual = {[8] = "Backspace", [9] = "Tab", [13] = "Return", [16] = "LeftShift", [17] = "LeftControl", [27] = "Escape", [32] = "Space", [35] = "End", [36] = "Home", [37] = "Left", [39] = "Right", [45] = "Insert", [46] = "Delete", [160] = "LeftShift", [161] = "RightShift", [162] = "LeftControl", [163] = "RightControl"}
+    local Virtual = {[8] = "Backspace", [9] = "Tab", [13] = "Return", [16] = "LeftShift", [17] = "LeftControl", [27] = "Escape", [32] = "Space", [35] = "End", [36] = "Home", [37] = "Left", [38] = "Up", [39] = "Right", [40] = "Down", [164] = "LeftAlt", [165] = "RightAlt", [45] = "Insert", [46] = "Delete", [160] = "LeftShift", [161] = "RightShift", [162] = "LeftControl", [163] = "RightControl"}
     for Code = 65, 90 do Virtual[Code] = string.char(Code) end
     local function Paint(Item)
         local Box = Bounds(Item)
@@ -416,12 +472,45 @@ local function CreateLibrary(Drawing, Services)
         Item.AbsolutePosition = Vector2.new(Box.X, Box.Y)
         Item.AbsoluteSize = Item.Size
         local Layer = GetLayer(Item)
-        local Base = {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = true, Color = Item.BackgroundColor3, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer}
+        local Base = {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = true, Color = Item.BackgroundColor3, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer, Rounding = Item.CornerRadius}
         if HoverChain[Item] and not Item.Multiline then
             Base.Color = Item.HoverColor3 or Base.Color
             if Item.HoverTransparency ~= nil then Base.Transparency = 1 - Item.HoverTransparency end
         end
-        if Item.Kind ~= "TextLabel" and Item.Kind ~= "ImageLabel" then Shape(Item, "Background", "Square", Base) end
+        local Switch = Item.Kind == "Checkbox" and Item.ToggleStyle == "Switch"
+        local Slider = Item.Kind == "Slider" and Item.SliderStyle == "Fluent"
+        if Item.Kind ~= "TextLabel" and Item.Kind ~= "ImageLabel" and not Switch and not Slider then Shape(Item, "Background", "Square", Base) end
+        if Item.BorderSizePixel > 0 then
+            Shape(Item, "Border", "Square", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = false,
+                Color = Item.BorderColor3, Transparency = 1 - Item.BorderTransparency, Thickness = Item.BorderSizePixel, Rounding = Item.CornerRadius, ZIndex = Layer + 1})
+        elseif Item.Shapes.Border then
+            Item.Shapes.Border.Object.Visible = false
+            Item.Shapes.Border.Values.Visible = false
+        end
+        if Switch then
+            local Width, Height = math.min(36, Box.Width), math.min(18, Box.Height)
+            local X, Y = Box.X + (Box.Width - Width) / 2, Box.Y + (Box.Height - Height) / 2
+            Shape(Item, "SwitchTrack", "Square", {Visible = true, Position = Vector2.new(X, Y), Size = Vector2.new(Width, Height), Filled = Item.Value,
+                Color = Item.Value and Item.AccentColor3 or Item.TextColor3, Transparency = Item.Value and 1 or 0.5, Thickness = 1, Rounding = Height / 2, ZIndex = Layer})
+            Shape(Item, "SwitchKnob", "Circle", {Visible = true, Position = Vector2.new(X + (Item.Value and Width - 9 or 9), Y + Height / 2),
+                Radius = 5.5, NumSides = 24, Filled = true, Color = Item.Value and Item.KnobColor3 or Item.TextColor3, Transparency = Item.Value and 1 or 0.6, ZIndex = Layer + 1})
+        elseif Slider then
+            local Fraction = math.clamp((Item.Value - Item.Min) / math.max(0.00001, Item.Max - Item.Min), 0, 1)
+            local Width = math.max(1, Box.Width - 14)
+            local X, Y = Box.X + 7, Box.Y + Box.Height / 2
+            Shape(Item, "SliderTrack", "Square", {Visible = true, Position = Vector2.new(X, Y - 2), Size = Vector2.new(Width, 4), Filled = true,
+                Color = Item.TextColor3, Transparency = 0.35, Rounding = 2, ZIndex = Layer})
+            Shape(Item, "SliderFill", "Square", {Visible = true, Position = Vector2.new(X, Y - 2), Size = Vector2.new(Width * Fraction, 4), Filled = true,
+                Color = Item.AccentColor3, Transparency = 1, Rounding = 2, ZIndex = Layer + 1})
+            Shape(Item, "SliderKnob", "Circle", {Visible = true, Position = Vector2.new(X + Width * Fraction, Y), Radius = 6, NumSides = 24,
+                Filled = true, Color = Item.AccentColor3, Transparency = 1, ZIndex = Layer + 2})
+        elseif Item.Kind == "ScrollingFrame" then
+            local Visible = Item.CanvasSize > Box.Height and Item.ScrollBarThickness > 0
+            local Height = math.max(18, Box.Height * Box.Height / math.max(Item.CanvasSize, 1))
+            local Offset = Item.ScrollOffset / math.max(1, Item.CanvasSize - Box.Height) * (Box.Height - Height)
+            Shape(Item, "ScrollBar", "Square", {Visible = Visible, Position = Vector2.new(Box.X + Box.Width - Item.ScrollBarThickness, Box.Y + Offset),
+                Size = Vector2.new(Item.ScrollBarThickness, Height), Filled = true, Color = Item.TextColor3, Transparency = 0.35, Rounding = 2, ZIndex = Layer + 10})
+        end
         if Item.Kind == "ImageLabel" then
             Shape(Item, "Image", "Image", {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Data = Item.Image, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer})
         elseif Item.Kind ~= "Frame" and Item.Kind ~= "ScrollingFrame" then
@@ -434,12 +523,17 @@ local function CreateLibrary(Drawing, Services)
                 elseif Measure.TextBounds.X < Offset then Offset = Measure.TextBounds.X end
                 Item.TextOffset = Offset
             end
-            if Item.Kind == "Checkbox" then Text = (Item.Value and "[x] " or "[ ] ") .. Text end
-            if Item.Kind == "Slider" then Text ..= " " .. string.format("%.2f", Item.Value) end
+            if Item.Kind == "Checkbox" and not Switch then Text = (Item.Value and "[x] " or "[ ] ") .. Text end
+            if Item.Kind == "Slider" and not Slider then Text ..= " " .. string.format("%.2f", Item.Value) end
             local Empty = Text == "" and Focus ~= Item
             if Empty then Text = Item.PlaceholderText end
-            local Label = Shape(Item, "Text", "Text", {Visible = true, Text = Text, Position = Vector2.new(Box.X + Item.Padding - Offset, Box.Y + (Item.Multiline and 3 or math.max(0, (Box.Height - Item.TextSize) / 2))), Size = Item.TextSize,
-                Color = Empty and Item.PlaceholderColor3 or Item.TextColor3, Font = Item.Font, ZIndex = Layer + 1, Outline = false})
+            local TextX = Box.X + Item.Padding - Offset
+            if Item.TextXAlignment ~= "Left" then
+                local Width = Shape(Item, "AlignMeasure", "Text", {Visible = false, Text = Text, Font = Item.Font, Size = Item.TextSize}).TextBounds.X
+                TextX = Item.TextXAlignment == "Center" and Box.X + (Box.Width - Width) / 2 or Box.X + Box.Width - Width - Item.Padding
+            end
+            local Label = Shape(Item, "Text", "Text", {Visible = true, Text = Text, Position = Vector2.new(TextX, Box.Y + (Item.Multiline and 3 or math.max(0, (Box.Height - Item.TextSize) / 2))), Size = Item.TextSize,
+                Color = Empty and Item.PlaceholderColor3 or Item.TextColor3, Transparency = 1 - Item.TextTransparency, Font = Item.Font, ZIndex = Layer + 2, Outline = false})
             for Key, Entry in Item.Shapes do
                 if Key == "Caret" or Key:sub(1, 9) == "Selection" then Entry.Object.Visible = false Entry.Values.Visible = false end
             end
@@ -490,14 +584,22 @@ local function CreateLibrary(Drawing, Services)
         if type(input) == "table" and type(input.isinterfaceactive) == "function" and input.isinterfaceactive() then Active = false end
         if not Active and Focus then Focus:ReleaseFocus(false) end
         if Focus and not Bounds(Focus) then Focus:ReleaseFocus(false) end
-        if not Active then table.clear(Keys) Pressed, Drag = nil, nil end
+        if not Active then table.clear(Keys) Pressed, Drag, ScrollDrag = nil, nil, nil end
         if Context then
             local Position = Context:getpointer()
-            if Position then Pointer = Vector2.new(Position.X, Position.Y) end
+            if Position and (Position.X ~= Pointer.X or Position.Y ~= Pointer.Y) then Pointer = Vector2.new(Position.X, Position.Y) end
             for _, Event in Context:getevents() do
+                if Event.Type == "KeyDown" or Event.Type == "KeyUp" then
+                    for _, Modifier in {"Command", "Control", "Shift", "Alt"} do
+                        if Event[Modifier] ~= nil then Keys[Modifier] = Event[Modifier] end
+                    end
+                end
                 if Event.Type == "KeyDown" then local KeyName = Virtual[Event.Code] or "Unknown" Keys[KeyName] = true Key(KeyName, Event.Repeat)
                 elseif Event.Type == "KeyUp" then Keys[Virtual[Event.Code] or "Unknown"] = nil
-                elseif Event.Type == "Text" or Event.Type == "Paste" then if Focus then Replace(Focus, Event.Text) end
+                elseif Event.Type == "Text" or Event.Type == "Paste" then
+                    local Text = Event.Text
+                    if Event.Type == "Paste" and type(Context.getpaste) == "function" then Text = Context:getpaste(Event.Code) end
+                    if Focus and Text ~= "" then Replace(Focus, Text) end
                 elseif Event.Type == "MouseDown" then
                     if Event.X and Event.Y then Pointer = Vector2.new(Event.X, Event.Y) end
                     PointerDown(Event.Code)
@@ -511,23 +613,42 @@ local function CreateLibrary(Drawing, Services)
             if Ok then Pointer = Position end
         end
         if Drag then Drag.Item.Position = Pointer - Drag.Offset end
+        if ScrollDrag then
+            local Box = Bounds(ScrollDrag)
+            if Box then
+                local Height = math.max(18, Box.Height * Box.Height / ScrollDrag.CanvasSize)
+                ScrollDrag.ScrollOffset = math.clamp((Pointer.Y - Box.Y - Height / 2) / math.max(1, Box.Height - Height), 0, 1) * math.max(0, ScrollDrag.CanvasSize - Box.Height)
+            end
+        end
         if Pressed and Pressed.Kind == "TextBox" and (Pressed.LastPointerX ~= Pointer.X or Pressed.LastPointerY ~= Pointer.Y) then Pressed.Cursor = Caret(Pressed) Pressed.LastPointerX, Pressed.LastPointerY = Pointer.X, Pointer.Y end
         if Pressed and Pressed.Kind == "Slider" then
             local Box = Bounds(Pressed)
-            if Box then Pressed.Value = Pressed.Min + math.clamp((Pointer.X - Box.X) / math.max(Box.Width, 1), 0, 1) * (Pressed.Max - Pressed.Min) end
+            if Box then
+                local Inset = Pressed.SliderStyle == "Fluent" and 7 or 0
+                Pressed.Value = Pressed.Min + math.clamp((Pointer.X - Box.X - Inset) / math.max(Box.Width - 2 * Inset, 1), 0, 1) * (Pressed.Max - Pressed.Min)
+            end
         end
         local Blink = Focus and math.floor((Clock and Clock() or Elapsed) * 2) or -1
         if Blink ~= LastBlink then LastBlink = Blink PaintDirty = true end
-        local Hovered
-        for Index = #Items, 1, -1 do
-            local Item = Items[Index]
-            if Active and not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
+        local Hovered = HoveredItem
+        if Pointer.X ~= LastHitX or Pointer.Y ~= LastHitY or LayoutVersion ~= LastHitVersion or Active ~= LastHitActive then
+            Hovered = nil
+            if Active then
+                for Index = #Items, 1, -1 do
+                    local Item = Items[Index]
+                    if not Item.Destroyed and Item.Active and Inside(Pointer, Bounds(Item)) and CanHit(Item) then Hovered = Item break end
+                end
+            end
+            LastHitX, LastHitY, LastHitVersion, LastHitActive = Pointer.X, Pointer.Y, LayoutVersion, Active
         end
         if Hovered ~= HoveredItem then
             HoveredItem = Hovered
-            table.clear(HoverChain)
+            local Previous = HoverChain
+            HoverChain = {}
             local Item = Hovered
             while Item do HoverChain[Item] = true Item = Item.Parent end
+            for Old in Previous do if not HoverChain[Old] and not Old.Destroyed then Old.MouseLeave:Fire() end end
+            for New in HoverChain do if not Previous[New] and not New.Destroyed then New.MouseEnter:Fire() end end
             PaintDirty = true
         end
         local Repaint = PaintDirty
@@ -587,15 +708,20 @@ local function CreateLibrary(Drawing, Services)
     end
     function Library.create(Kind, Properties)
         assert(Kinds[Kind], "Unsupported UI control: " .. tostring(Kind))
+        if #Items >= 512 then
+            for Index = #Items, 1, -1 do if Items[Index].Destroyed then table.remove(Items, Index) end end
+        end
         assert(#Items < 512, "UI control limit reached")
         NextId += 1
         local Data = {Kind = Kind, Id = NextId, Position = Vector2.new(0, 0), Size = Vector2.new(200, 30), Visible = true, Active = true, ZIndex = 1000,
             BackgroundColor3 = Color3.fromRGB(28, 28, 30), BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(235, 235, 238), PlaceholderColor3 = Color3.fromRGB(130, 130, 138),
             Text = "", PlaceholderText = "", TextSize = 16, Font = Drawing.Fonts.Monospace or 3, Padding = 6, MaxLength = 65536, TextEditable = true, ClearTextOnFocus = false,
-            Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0,
+            Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0, CornerRadius = 0,
+            TextXAlignment = "Left", TextTransparency = 0, BorderSizePixel = 0, BorderColor3 = Color3.fromRGB(70, 70, 75), BorderTransparency = 0,
+            AccentColor3 = Color3.fromRGB(96, 205, 255), KnobColor3 = Color3.fromRGB(20, 25, 32), ScrollBarThickness = 3,
             Shapes = {}, ChangedEvents = {}, UndoItems = {}, RedoItems = {}, Destroyed = false}
         if Kind == "Slider" then Data.Value = 0 end
-        for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
+        for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseEnter", "MouseLeave", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
         local Object
         Object = setmetatable({}, {__index = function(_, Key) return Methods[Key] or Data[Key] end, __newindex = function(_, Key, Value)
             assert(not Data.Destroyed or Key == "Destroyed", "UI control was destroyed")
@@ -605,15 +731,15 @@ local function CreateLibrary(Drawing, Services)
             elseif Key == "Text" then assert(type(Value) == "string" and #Value <= 65536, "Invalid text")
             elseif Key == "Position" or Key == "Size" then assert(Value and type(Value.X) == "number" and type(Value.Y) == "number" and Value.X == Value.X and Value.Y == Value.Y and math.abs(Value.X) <= 65536 and math.abs(Value.Y) <= 65536, "Invalid UI bounds")
             elseif Key == "MaxLength" then assert(type(Value) == "number" and Value >= 0 and Value <= 65536, "Invalid text limit") end
-            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" then
+            if Key == "ZIndex" or Key == "TextSize" or Key == "Padding" or Key == "Font" or Key == "Cursor" or Key == "Anchor" or Key == "CanvasSize" or Key == "ScrollOffset" or Key == "Min" or Key == "Max" or Key == "CornerRadius" or Key == "BorderSizePixel" or Key == "ScrollBarThickness" then
                 assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid UI number")
-            elseif Key == "BackgroundTransparency" or Key == "HoverTransparency" then assert(type(Value) == "number" and Value >= 0 and Value <= 1, "Invalid transparency")
-            elseif Key == "TextColor3" or Key == "BackgroundColor3" or Key == "PlaceholderColor3" or Key == "HoverColor3" then assert(Value and type(Value.R) == "number" and type(Value.G) == "number" and type(Value.B) == "number", "Invalid UI color") end
+            elseif Key == "BackgroundTransparency" or Key == "HoverTransparency" or Key == "BorderTransparency" or Key == "TextTransparency" then assert(type(Value) == "number" and Value >= 0 and Value <= 1, "Invalid transparency")
+            elseif Key == "TextColor3" or Key == "BackgroundColor3" or Key == "PlaceholderColor3" or Key == "HoverColor3" or Key == "BorderColor3" or Key == "AccentColor3" or Key == "KnobColor3" then assert(Value and type(Value.R) == "number" and type(Value.G) == "number" and type(Value.B) == "number", "Invalid UI color") end
             if Key == "TextSize" then assert(Value >= 1 and Value <= 10000, "Invalid text size") end
             if Key == "Value" and Data.Kind == "Slider" then assert(type(Value) == "number" and Value == Value and math.abs(Value) <= 65536, "Invalid slider value") end
             if Data[Key] == Value then return end
             if (Key == "Position" or Key == "Size") and Data[Key] and Data[Key].X == Value.X and Data[Key].Y == Value.Y then return end
-            if Key == "Position" or Key == "Size" or Key == "Visible" or Key == "Parent" or Key == "ScrollOffset" or Key == "Destroyed" then LayoutVersion += 1 end
+            if Key == "Position" or Key == "Size" or Key == "Visible" or Key == "Parent" or Key == "ScrollOffset" or Key == "Destroyed" or Key == "Active" or Key == "ZIndex" or Key == "ClipsDescendants" then LayoutVersion += 1 end
             if Key ~= "AbsolutePosition" and Key ~= "AbsoluteSize" and Key ~= "TextOffset" and Key ~= "LastPointerX" then PaintDirty = true end
             Data[Key] = Value
             if Key == "Text" then Data.Cursor = math.min(Data.Cursor, #Value) Data.Anchor = math.min(Data.Anchor, #Value) Data.TextChanged:Fire(Value) end
@@ -623,6 +749,7 @@ local function CreateLibrary(Drawing, Services)
         end})
         if Properties then for Key, Value in Properties do Object[Key] = Value end end
         Items[#Items + 1] = Object
+        LayoutVersion += 1
         Dirty = true
         PaintDirty = true
         Start()
@@ -884,7 +1011,7 @@ local function Dot(A, B) return A.X * B.X + A.Y * B.Y + A.Z * B.Z end
 local function Unit(Value)
     local Length = math.sqrt(Dot(Value, Value))
     if Length < 0.000001 then return nil end
-    return Vector3.new(Value.X / Length, Value.Y / Length, Value.Z / Length)
+    return rawget(Vector3, "new")(Value.X / Length, Value.Y / Length, Value.Z / Length)
 end
 Runtime.Dot = Dot
 Runtime.Unit = Unit
@@ -919,10 +1046,10 @@ function Runtime.Project(Position)
     local X = View.Width / 2 + Dot(Difference, View.Right) * View.ScaleX / Divisor
     local Y = View.Height / 2 - Dot(Difference, View.Up) * View.ScaleY / Divisor
     local Visible = Depth > 0 and X >= 0 and X <= View.Width and Y >= 0 and Y <= View.Height
-    if X ~= X or Y ~= Y or Depth ~= Depth then return Vector3.new(0, 0, -1), false end
+    if X ~= X or Y ~= Y or Depth ~= Depth then return rawget(Vector3, "new")(0, 0, -1), false end
     X = math.clamp(X, -View.Width * 4, View.Width * 5)
     Y = math.clamp(Y, -View.Height * 4, View.Height * 5)
-    return Vector3.new(X, Y, Depth), Visible
+    return rawget(Vector3, "new")(X, Y, Depth), Visible
 end
 
 function Runtime.ScreenEdge(Position)
