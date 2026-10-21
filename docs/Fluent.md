@@ -66,15 +66,21 @@ Configs live under `Workspace/<ScriptFolder>/settings/<Name>.json`; interface se
 
 `BuildConfigSection` enables autosave by default. Once all options are created, it loads the selected autoload profile or the private `autosave` profile, then saves edits after 0.8 seconds of inactivity. Closing the window flushes pending changes. Each script should use its own SaveManager folder and the shared `FluentInterface` folder for InterfaceManager. Set `SaveManager.AutoSave = false` before building the config section to disable this behavior. `SetAutoloadConfig`, `LoadAutoloadConfig`, `RefreshConfigList`, `SetIgnoreIndexes`, `IgnoreThemeSettings`, and `FlushAutoSave` are supported.
 
-Fluent and its example load files from the repository’s `main` branch; their URLs contain no commit IDs. The library uses a native `Drawing.newcontext()` with `UiVersion >= 8` when available. Otherwise it fetches `Fluent/Drawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `Fluent/Icons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
+Fluent and its example load files from the repository’s `main` branch; their URLs contain no commit IDs. The library uses a native `Drawing.newcontext()` with `UiVersion >= 9` when available. Otherwise it fetches `Fluent/Drawing.luau`, which implements the controls over standard Drawing and input events. Icons come from `Fluent/Icons.luau`. Rounded backgrounds and clipping depend on the Drawing implementation; unsupported rounding is skipped. Filesystem and JSON support are needed for persistent configs.
 
 The title bar, page heading, row backgrounds, tab selection marker, icons, switches, and rails follow Fluent's layout. Drag the bottom-right grip to resize, or call `Window:Resize(width, height)`. Controls and tab pages reflow with the window.
 
-`Acrylic` and `ToggleAcrylic(enabled)` control a subtle highlight. InterfaceManager calls this "Soft lighting" and saves the preference. The panel stays opaque unless Transparency is enabled, which makes it 8% transparent. The old stretched grain texture has been removed. This renderer does not blur the game behind the window, so `SupportsAcrylic` remains false. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
+`Acrylic` and `ToggleAcrylic(enabled)` enable real backdrop blur when `Drawing.supportsblur()` is true. Native Vulkan captures the scene into reusable GPU images and creates a filtered pyramid before drawing the UI. Only the area behind the rounded window is composited, beneath the theme tint. Multiple panels share the same captured frame. No screenshots are transferred to the CPU, and no capture runs while blur objects are hidden.
 
-## Shared Drawing UI version 8
+`SupportsAcrylic` reports availability for the renderer active when the UI context is created. InterfaceManager shows the Acrylic toggle only when supported and saves the preference. Without blur, the panel stays opaque or 8% transparent. With blur, its tint is 80% opaque, or 65% with Transparency enabled. DirectX12, the separate Overlay backend, and Metal currently have no backdrop pass. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
+
+## Shared Drawing UI version 9
 
 Controls add `MouseEnter`, `MouseLeave`, `TextXAlignment` (Left/Center/Right), `TextTransparency`, `BorderSizePixel`, `BorderColor3`, `BorderTransparency`, `CornerRadius`, `AccentColor3`, `KnobColor3`, and `ScrollBarThickness`. `ToggleStyle="Switch"` selects the switch appearance; `SliderStyle="Fluent"` selects the rail and thumb. A draggable control can set `DragTarget` to its root window. Scrolling frames show a draggable scrollbar when their canvas exceeds their height.
+
+Frames can set `BackdropBlur = true` to place a rounded native blur beneath their background.
+`Library.SupportsBackdropBlur` reports whether that UI context can use it. Use a translucent
+`BackgroundTransparency` to reveal the blurred scene through the tint.
 
 Properties keep existing defaults for older scripts. Destroyed controls are reclaimed before enforcing the 512-control limit. Square/Panel rounding uses the renderer's existing `Rounding` drawing property.
 

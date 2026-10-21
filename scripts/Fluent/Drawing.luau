@@ -1,5 +1,11 @@
 local function CreateLibrary(Drawing, Services)
-    local Library = {UiVersion = 8}
+    local Library = {UiVersion = 9}
+    local BlurSupported = false
+    if type(Drawing.supportsblur) == "function" then
+        local Ok, Value = pcall(Drawing.supportsblur)
+        BlurSupported = Ok and Value == true
+    end
+    Library.SupportsBackdropBlur = BlurSupported
     local HoveredItem
     local HoverChain = {}
     local Items, Connections = {}, {}
@@ -305,6 +311,14 @@ local function CreateLibrary(Drawing, Services)
         Item.AbsoluteSize = Item.Size
         local Layer = GetLayer(Item)
         local Base = {Visible = true, Position = Item.AbsolutePosition, Size = Item.Size, Filled = true, Color = Item.BackgroundColor3, Transparency = 1 - Item.BackgroundTransparency, ZIndex = Layer, Rounding = Item.CornerRadius}
+        if Item.BackdropBlur and BlurSupported then
+            Shape(Item, "Backdrop", "Blur", {Visible = true, Position = Item.AbsolutePosition,
+                Size = Item.Size, Color = Color3.fromRGB(255, 255, 255), Transparency = 1,
+                ZIndex = Layer - 0.5, Rounding = Item.CornerRadius})
+        elseif Item.Shapes.Backdrop then
+            Item.Shapes.Backdrop.Object.Visible = false
+            Item.Shapes.Backdrop.Values.Visible = false
+        end
         if HoverChain[Item] and not Item.Multiline then
             Base.Color = Item.HoverColor3 or Base.Color
             if Item.HoverTransparency ~= nil then Base.Transparency = 1 - Item.HoverTransparency end
@@ -542,7 +556,7 @@ local function CreateLibrary(Drawing, Services)
             Text = "", PlaceholderText = "", TextSize = 16, Font = Drawing.Fonts.Monospace or 3, Padding = 6, MaxLength = 65536, TextEditable = true, ClearTextOnFocus = false,
             Cursor = 0, Anchor = 0, Value = false, Min = 0, Max = 100, Multiline = false, Draggable = false, ClipsDescendants = false, ScrollOffset = 0, CanvasSize = 0, CornerRadius = 0,
             TextXAlignment = "Left", TextTransparency = 0, BorderSizePixel = 0, BorderColor3 = Color3.fromRGB(70, 70, 75), BorderTransparency = 0,
-            AccentColor3 = Color3.fromRGB(96, 205, 255), KnobColor3 = Color3.fromRGB(20, 25, 32), ScrollBarThickness = 3,
+            AccentColor3 = Color3.fromRGB(96, 205, 255), KnobColor3 = Color3.fromRGB(20, 25, 32), ScrollBarThickness = 3, BackdropBlur = false,
             Shapes = {}, ChangedEvents = {}, UndoItems = {}, RedoItems = {}, Destroyed = false}
         if Kind == "Slider" then Data.Value = 0 end
         for _, Event in {"Focused", "FocusLost", "TextChanged", "Changed", "InputBegan", "MouseEnter", "MouseLeave", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "MouseButton2Click", "MouseButton2Down", "MouseButton2Up"} do Data[Event] = Signal() end
@@ -552,6 +566,7 @@ local function CreateLibrary(Drawing, Services)
             if Key == "Parent" then
                 local Parent, Depth = Value, 0
                 while Parent do assert(Parent ~= Object and Library.isui(Parent) and Depth < 64, "Invalid UI parent") Parent = Parent.Parent Depth += 1 end
+            elseif Key == "BackdropBlur" then assert(type(Value) == "boolean", "Invalid backdrop blur")
             elseif Key == "Text" then assert(type(Value) == "string" and #Value <= 65536, "Invalid text")
             elseif Key == "Position" or Key == "Size" then assert(Value and type(Value.X) == "number" and type(Value.Y) == "number" and Value.X == Value.X and Value.Y == Value.Y and math.abs(Value.X) <= 65536 and math.abs(Value.Y) <= 65536, "Invalid UI bounds")
             elseif Key == "MaxLength" then assert(type(Value) == "number" and Value >= 0 and Value <= 65536, "Invalid text limit") end

@@ -43,11 +43,13 @@ function InterfaceManager:BuildInterfaceSection(Tab)
         Settings.Transparency = Value
         self:SaveSettings()
     end})
-    Section:AddToggle("AcrylicToggle", {Title = "Soft lighting", Description = "Adds a subtle highlight to the window.", Default = Settings.Acrylic, Callback = function(Value)
-        Library:ToggleAcrylic(Value)
-        Settings.Acrylic = Value
-        self:SaveSettings()
-    end})
+    if Library.SupportsAcrylic then
+        Section:AddToggle("AcrylicToggle", {Title = "Acrylic", Description = "Blurs the scene behind the window.", Default = Settings.Acrylic, Callback = function(Value)
+            Library:ToggleAcrylic(Value)
+            Settings.Acrylic = Value
+            self:SaveSettings()
+        end})
+    end
     local Keybind = Section:AddKeybind("MenuKeybind", {Title = "Minimize bind", Default = Settings.MenuKeybind})
     Keybind:OnChanged(function(Value) Settings.MenuKeybind = Value self:SaveSettings() end)
     Library.MinimizeKeybind = Keybind

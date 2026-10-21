@@ -12,11 +12,11 @@ if Previous and Previous.AstraVersion and type(Previous.Destroy) == "function" t
 local Ui
 if Drawing and type(Drawing.newcontext) == "function" then
     local Ok, Result = pcall(Drawing.newcontext)
-    if Ok and Result and (Result.UiVersion or 0) >= 8 then Ui = Result end
+    if Ok and Result and (Result.UiVersion or 0) >= 9 then Ui = Result end
 end
 if not Ui then
     Ui = assert(loadstring(game:HttpGet(AssetBase .. "Drawing.luau")))()(Drawing)
-    assert((Ui.UiVersion or 0) >= 8, "Fluent requires Drawing UI version 8")
+    assert((Ui.UiVersion or 0) >= 9, "Fluent requires Drawing UI version 9")
 end
 local Font = Drawing.Fonts and (Drawing.Fonts.SourceSans or Drawing.Fonts.Plex or Drawing.Fonts.UI) or 0
 local Icons = {}
@@ -25,10 +25,10 @@ local IconOk, IconData = pcall(function()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
-    Version = "1.1.4", AstraVersion = 3, Options = {}, Unloaded = false, Theme = "Dark",
+    Version = "1.1.5", AstraVersion = 4, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
     Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 3, NotificationDuration = 4, Ui = Ui,
-    SupportsAcrylic = false, SupportsAcrylicPaint = true, UseAcrylic = true
+    SupportsAcrylic = Ui.SupportsBackdropBlur == true, UseAcrylic = false
 }
 Environment.AstraFluent = Fluent
 local Window, Popup
@@ -446,7 +446,6 @@ function WindowMethods:Resize(Width, Height)
     if self.SubTitle then self.SubTitle.Size = V2(math.max(1, Width - self.SubTitle.Position.X - 95), 18) end
     self.TitleLine.Size = V2(Width - 2, 1)
     self.MinimizeButton.Position, self.CloseButton.Position = V2(Width - 78, 5), V2(Width - 41, 5)
-    if self.Sheen then self.Sheen.Size = self.Root.Size end
     for _, Shadow in self.Shadows or {} do Shadow.Size = V2(Width - Shadow.Position.X * 2, Height - Shadow.Position.Y * 2) end
     if self.ResizeHandle then self.ResizeHandle.Position = V2(Width - 20, Height - 20) end
     for _, Tab in self.Tabs do
@@ -552,8 +551,6 @@ function Fluent:CreateWindow(Config)
         Window.Shadows[Index] = Create("Frame", Root, -Inset, -Inset, Width + Inset * 2, Height + Inset * 2,
             {ZIndex = -10 - Index, Active = false, BackgroundColor3 = RGB(0, 0, 0), BackgroundTransparency = 0.95, CornerRadius = 8 + Inset})
     end
-    Window.Sheen = Create("Frame", Root, 0, 0, Width, Height,
-        {ZIndex = 0, Active = false, BackgroundColor3 = RGB(255, 255, 255), BackgroundTransparency = 0.995, CornerRadius = 8})
     local Minimize = Click(Header, "", Width - 78, 5, 33, 32, function() Window:Minimize() end)
     if not Icons.minus then Minimize.Text = "-" end
     Minimize.BackgroundTransparency = 1
@@ -595,10 +592,11 @@ function Fluent:ToggleTransparency(Value)
     self:ToggleAcrylic(self.UseAcrylic)
 end
 function Fluent:ToggleAcrylic(Value)
-    self.UseAcrylic = not not Value
+    self.UseAcrylic = Value == true and self.SupportsAcrylic
     if not Window then return end
-    Window.Root.BackgroundTransparency = self.Transparency and 0.08 or 0
-    if Window.Sheen then Window.Sheen.Visible = self.UseAcrylic end
+    Window.Root.BackdropBlur = self.UseAcrylic
+    Window.Root.BackgroundTransparency = self.UseAcrylic and (self.Transparency and 0.35 or 0.2)
+        or (self.Transparency and 0.08 or 0)
 end
 function Fluent:OnUnload(Callback)
     self.UnloadCallbacks = self.UnloadCallbacks or {}
