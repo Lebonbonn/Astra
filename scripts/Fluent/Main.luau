@@ -25,7 +25,7 @@ local IconOk, IconData = pcall(function()
 end)
 if IconOk and type(IconData) == "table" then Icons = IconData end
 local Fluent = {
-    Version = "1.1.3", AstraVersion = 2, Options = {}, Unloaded = false, Theme = "Dark",
+    Version = "1.1.4", AstraVersion = 3, Options = {}, Unloaded = false, Theme = "Dark",
     Themes = {"Dark", "Darker", "Light", "Aqua", "Amethyst", "Rose"},
     Connections = {}, Keybinds = {}, Notifications = {}, MaxNotifications = 3, NotificationDuration = 4, Ui = Ui,
     SupportsAcrylic = false, SupportsAcrylicPaint = true, UseAcrylic = true
@@ -446,7 +446,6 @@ function WindowMethods:Resize(Width, Height)
     if self.SubTitle then self.SubTitle.Size = V2(math.max(1, Width - self.SubTitle.Position.X - 95), 18) end
     self.TitleLine.Size = V2(Width - 2, 1)
     self.MinimizeButton.Position, self.CloseButton.Position = V2(Width - 78, 5), V2(Width - 41, 5)
-    if self.Grain then self.Grain.Size = self.Root.Size end
     if self.Sheen then self.Sheen.Size = self.Root.Size end
     for _, Shadow in self.Shadows or {} do Shadow.Size = V2(Width - Shadow.Position.X * 2, Height - Shadow.Position.Y * 2) end
     if self.ResizeHandle then self.ResizeHandle.Position = V2(Width - 20, Height - 20) end
@@ -554,12 +553,7 @@ function Fluent:CreateWindow(Config)
             {ZIndex = -10 - Index, Active = false, BackgroundColor3 = RGB(0, 0, 0), BackgroundTransparency = 0.95, CornerRadius = 8 + Inset})
     end
     Window.Sheen = Create("Frame", Root, 0, 0, Width, Height,
-        {ZIndex = 0, Active = false, BackgroundColor3 = RGB(255, 255, 255), BackgroundTransparency = 0.97, CornerRadius = 8})
-    local Ok, Grain = pcall(function() return assert(loadstring(game:HttpGet(AssetBase .. "Acrylic.luau")))() end)
-    if Ok and type(Grain) == "string" then
-        Window.Grain = Create("ImageLabel", Root, 0, 0, Width, Height,
-            {ZIndex = 0, Active = false, Image = Grain, BackgroundTransparency = 0.90, CornerRadius = 8})
-    end
+        {ZIndex = 0, Active = false, BackgroundColor3 = RGB(255, 255, 255), BackgroundTransparency = 0.995, CornerRadius = 8})
     local Minimize = Click(Header, "", Width - 78, 5, 33, 32, function() Window:Minimize() end)
     if not Icons.minus then Minimize.Text = "-" end
     Minimize.BackgroundTransparency = 1
@@ -603,8 +597,7 @@ end
 function Fluent:ToggleAcrylic(Value)
     self.UseAcrylic = not not Value
     if not Window then return end
-    Window.Root.BackgroundTransparency = self.UseAcrylic and (self.Transparency and 0.5 or 0.28) or (self.Transparency and 0.08 or 0)
-    if Window.Grain then Window.Grain.Visible = self.UseAcrylic end
+    Window.Root.BackgroundTransparency = self.Transparency and 0.08 or 0
     if Window.Sheen then Window.Sheen.Visible = self.UseAcrylic end
 end
 function Fluent:OnUnload(Callback)

@@ -43,7 +43,7 @@ function InterfaceManager:BuildInterfaceSection(Tab)
         Settings.Transparency = Value
         self:SaveSettings()
     end})
-    Section:AddToggle("AcrylicToggle", {Title = "Acrylic material", Description = "Translucent tint and grain. Does not blur the game.", Default = Settings.Acrylic, Callback = function(Value)
+    Section:AddToggle("AcrylicToggle", {Title = "Soft lighting", Description = "Adds a subtle highlight to the window.", Default = Settings.Acrylic, Callback = function(Value)
         Library:ToggleAcrylic(Value)
         Settings.Acrylic = Value
         self:SaveSettings()

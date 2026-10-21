@@ -70,7 +70,7 @@ Fluent and its example load files from the repository’s `main` branch; their U
 
 The title bar, page heading, row backgrounds, tab selection marker, icons, switches, and rails follow Fluent's layout. Drag the bottom-right grip to resize, or call `Window:Resize(width, height)`. Controls and tab pages reflow with the window.
 
-`Acrylic` enables layered tint, grain, sheen, and borders. `Window:ToggleAcrylic(enabled)` changes the material; InterfaceManager saves the preference. `SupportsAcrylicPaint` is true. This material does not blur the game behind it, so `SupportsAcrylic` remains false. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
+`Acrylic` and `ToggleAcrylic(enabled)` control a subtle highlight. InterfaceManager calls this "Soft lighting" and saves the preference. The panel stays opaque unless Transparency is enabled, which makes it 8% transparent. The old stretched grain texture has been removed. This renderer does not blur the game behind the window, so `SupportsAcrylic` remains false. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
 
 ## Shared Drawing UI version 8
 
