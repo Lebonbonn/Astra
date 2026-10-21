@@ -74,6 +74,12 @@ The title bar, page heading, row backgrounds, tab selection marker, icons, switc
 
 `SupportsAcrylic` reports availability for the renderer active when the UI context is created. InterfaceManager shows the Acrylic toggle only when supported and saves the preference. Without blur, the panel stays opaque or 8% transparent. With blur, its tint is 80% opaque, or 65% with Transparency enabled. DirectX12, the separate Overlay backend, and Metal currently have no backdrop pass. Spring animations, maximizing, arbitrary Roblox asset icons, and the upstream HSV color canvas remain unavailable.
 
+Native blur is off by default. Enable **Acrylic / backdrop blur** in the internal Settings menu
+and restart if the current swapchain does not support capture, then reload Fluent. Turning the
+global setting off stops captures immediately. The Vulkan pass filters a quarter-resolution image
+down and back up to soften pixelation while using about 75% fewer working-image pixels than the
+original implementation. It still costs GPU time; leave it disabled for the lowest overhead.
+
 ## Shared Drawing UI version 9
 
 Controls add `MouseEnter`, `MouseLeave`, `TextXAlignment` (Left/Center/Right), `TextTransparency`, `BorderSizePixel`, `BorderColor3`, `BorderTransparency`, `CornerRadius`, `AccentColor3`, `KnobColor3`, and `ScrollBarThickness`. `ToggleStyle="Switch"` selects the switch appearance; `SliderStyle="Fluent"` selects the rail and thumb. A draggable control can set `DragTarget` to its root window. Scrolling frames show a draggable scrollbar when their canvas exceeds their height.
